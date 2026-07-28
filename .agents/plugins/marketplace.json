@@ -1,0 +1,21 @@
+{
+  "name": "idiots-roadmap",
+  "interface": {
+    "displayName": "Idiots Roadmap"
+  },
+  "plugins": [
+    {
+      "name": "idiots-roadmap",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/idiots-roadmap/idiots-roadmap.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

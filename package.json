@@ -1,0 +1,15 @@
+{
+  "name": "idiots-roadmap",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plan-mode roadmap skill for Codex and Claude Code.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "validate": "node scripts/validate-package.mjs"
+  },
+  "license": "MIT"
+}

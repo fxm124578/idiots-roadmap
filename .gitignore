@@ -1,0 +1,7 @@
+node_modules/
+coverage/
+.idiotsroadmap/
+IDIOTS_ROADMAP.md
+.*.tmp
+.DS_Store
+Thumbs.db

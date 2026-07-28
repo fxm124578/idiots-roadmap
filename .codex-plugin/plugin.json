@@ -1,0 +1,36 @@
+{
+  "name": "idiots-roadmap",
+  "version": "1.0.0",
+  "description": "Turn Plan-mode technical proposals into clear, user-verifiable development roadmaps.",
+  "author": {
+    "name": "Idiots Roadmap Contributors"
+  },
+  "homepage": "https://github.com/idiots-roadmap/idiots-roadmap",
+  "repository": "https://github.com/idiots-roadmap/idiots-roadmap",
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "roadmap",
+    "no-code",
+    "user-acceptance"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Idiots Roadmap",
+    "shortDescription": "Plans that non-programmers can drive and verify",
+    "longDescription": "Break Plan-mode proposals into bounded development steps with copyable prompts and at most two user-facing acceptance checks.",
+    "developerName": "Idiots Roadmap Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Instructions",
+      "Lifecycle hooks",
+      "Project files"
+    ],
+    "websiteURL": "https://github.com/idiots-roadmap/idiots-roadmap",
+    "defaultPrompt": [
+      "Turn this Plan-mode proposal into an Idiots Roadmap.",
+      "Make this plan verifiable without reading code."
+    ],
+    "brandColor": "#F97316"
+  }
+}

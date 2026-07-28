@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "idiots-roadmap",
+  "description": "把技术计划拆成非程序员可以逐步驱动、反馈和验收的 Roadmap。",
+  "owner": {
+    "name": "Idiots Roadmap Contributors",
+    "url": "https://github.com/idiots-roadmap"
+  },
+  "plugins": [
+    {
+      "name": "idiots-roadmap",
+      "description": "Plan 模式的用户验收型开发 Roadmap。",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

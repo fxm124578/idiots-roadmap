@@ -1,0 +1,44 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v node >/dev/null 2>&1 && node \"${CLAUDE_PLUGIN_ROOT}/hooks/inject-roadmap.mjs\" || true",
+            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\inject-roadmap.mjs\" }",
+            "timeout": 5,
+            "statusMessage": "Preparing Idiots Roadmap..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v node >/dev/null 2>&1 && node \"${CLAUDE_PLUGIN_ROOT}/hooks/land-roadmap.mjs\" --event=PreToolUse || true",
+            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\land-roadmap.mjs\" --event=PreToolUse }",
+            "timeout": 5,
+            "statusMessage": "Saving Idiots Roadmap..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v node >/dev/null 2>&1 && node \"${CLAUDE_PLUGIN_ROOT}/hooks/land-roadmap.mjs\" --event=Stop || true",
+            "commandWindows": "if (Get-Command node -ErrorAction SilentlyContinue) { node \"$env:CLAUDE_PLUGIN_ROOT\\hooks\\land-roadmap.mjs\" --event=Stop }",
+            "timeout": 5,
+            "statusMessage": "Validating Idiots Roadmap..."
+          }
+        ]
+      }
+    ]
+  }
+}

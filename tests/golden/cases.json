@@ -1,0 +1,153 @@
+[
+  {
+    "name": "完全不懂代码的新前端项目",
+    "goal": "先看到可点击的注册页面",
+    "capabilityMode": "no-code",
+    "capabilityDescription": "完全不看代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "kind": "frontend",
+        "evidence": "ui",
+        "data": "none",
+        "visible": "打开浏览器即可点击完整注册界面；提交按钮明确标注尚未连接账号系统。",
+        "boundaries": "本步不实现账号写入、权限或安全校验，页面不得把这些能力表现为可用。"
+      }
+    ]
+  },
+  {
+    "name": "已有前端但后端尚未实现",
+    "goal": "在现有订单页预览退款流程",
+    "capabilityMode": "no-code",
+    "capabilityDescription": "完全不看代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "kind": "frontend",
+        "evidence": "ui",
+        "data": "mock",
+        "visible": "现有订单页显示标注为演示数据的退款入口；真实退款和权限校验明确标注未实现。",
+        "boundaries": "不发起真实退款，不写入数据，不伪装权限和支付能力已经可用。"
+      },
+      {
+        "kind": "integration",
+        "evidence": "ui",
+        "data": "real",
+        "visible": "同一订单页显示真实接口状态，仍由页面完成验收。",
+        "boundaries": "只接入已定义的退款申请接口，不扩展其他订单功能。"
+      }
+    ]
+  },
+  {
+    "name": "演示数据后接真实接口",
+    "goal": "通过同一仪表盘查看真实指标",
+    "capabilityMode": "no-code",
+    "capabilityDescription": "完全不看代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "kind": "frontend",
+        "evidence": "ui",
+        "data": "mock",
+        "visible": "仪表盘用醒目的“演示数据”标识展示可反馈布局。",
+        "boundaries": "本步不连接真实数据源。"
+      },
+      {
+        "kind": "integration",
+        "evidence": "ui",
+        "data": "real",
+        "visible": "同一仪表盘切换为真实数据，并能看见更新时间。",
+        "boundaries": "只替换数据来源，不重新设计已通过的布局。"
+      }
+    ]
+  },
+  {
+    "name": "纯 CLI 项目的无代码验收",
+    "goal": "从文件生成可打开的中文报告",
+    "capabilityMode": "no-code",
+    "capabilityDescription": "完全不看代码",
+    "hasFrontend": false,
+    "steps": [
+      {
+        "kind": "report",
+        "evidence": "report",
+        "data": "real",
+        "visible": "开发 AI 提供一个可直接打开的样例报告和对应输入文件。",
+        "boundaries": "用户无需查看命令、日志或测试报告。"
+      }
+    ]
+  },
+  {
+    "name": "Python 基础代码阅读者",
+    "goal": "增加 Python 文件导入器",
+    "capabilityMode": "code-reader",
+    "capabilityDescription": "能看 Python 基础代码",
+    "hasFrontend": false,
+    "steps": [
+      {
+        "kind": "backend",
+        "evidence": "diff",
+        "data": "real",
+        "visible": "可通过样例输入输出和一小段 Python diff 理解改动。",
+        "boundaries": "只要求阅读 Python，不要求用户修改代码。"
+      }
+    ]
+  },
+  {
+    "name": "前端语言基础代码阅读者",
+    "goal": "改进筛选组件",
+    "capabilityMode": "code-reader",
+    "capabilityDescription": "能看 JavaScript/TypeScript/CSS 基础代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "kind": "frontend",
+        "evidence": "code",
+        "data": "real",
+        "visible": "页面行为和少量 TypeScript/CSS 片段共同展示结果。",
+        "boundaries": "不要求阅读后端语言或亲自编辑代码。"
+      }
+    ]
+  },
+  {
+    "name": "自定义能力范围",
+    "goal": "调整导出格式",
+    "capabilityMode": "custom",
+    "capabilityDescription": "能看 SQL 查询但不看应用代码，也不会使用终端",
+    "hasFrontend": false,
+    "steps": [
+      {
+        "kind": "report",
+        "evidence": "report",
+        "data": "real",
+        "visible": "通过导出样例和允许范围内的 SQL 摘要验收。",
+        "boundaries": "不使用应用代码、终端或日志作为用户验收。"
+      }
+    ]
+  },
+  {
+    "name": "部分完成后切换能力",
+    "action": "update",
+    "goal": "完成任务管理流程",
+    "capabilityMode": "no-code",
+    "capabilityDescription": "完全不看代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "status": "completed",
+        "kind": "frontend",
+        "evidence": "ui",
+        "data": "real",
+        "visible": "已完成的任务列表保持原样。",
+        "boundaries": "已完成步骤不得重写。"
+      },
+      {
+        "kind": "integration",
+        "evidence": "ui",
+        "data": "real",
+        "visible": "同一页面增加真实完成状态切换。",
+        "boundaries": "只重写未完成步骤。"
+      }
+    ]
+  }
+]
