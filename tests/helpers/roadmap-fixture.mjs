@@ -1,7 +1,9 @@
 export function makeStep({
   id = "step-01",
   label = null,
+  displayOrder = undefined,
   status = "pending",
+  createdUnderCapability = undefined,
   kind = "other",
   evidence = "report",
   data = "none",
@@ -18,8 +20,9 @@ export function makeStep({
   boundaries = "不实现本步骤以外的功能。",
   acceptance = ["打开结果并确认核心内容正确。"],
 } = {}) {
-  const displayLabel = label || String(Number(id.slice(-2)));
-  const executionBatch = batch ?? Number(id.slice(-2));
+  const numericSuffix = id.match(/(\d+)$/u)?.[1];
+  const displayLabel = label || (numericSuffix ? String(Number(numericSuffix)) : id);
+  const executionBatch = batch ?? (numericSuffix ? Number(numericSuffix) : 1);
   const fileScopes = files || [`work/${id}/**`];
   const resolvedGitAction = gitAction || (execution === "parallel" ? "create-branch" : "stay");
   const resolvedBranch = branch || (execution === "parallel" ? `ir/${id}` : "ir/roadmap");
@@ -45,7 +48,9 @@ export function makeStep({
   return `<!-- IR_STEP ${JSON.stringify({
     id,
     label: displayLabel,
+    ...(displayOrder === undefined ? {} : { displayOrder }),
     status,
+    ...(createdUnderCapability === undefined ? {} : { createdUnderCapability }),
     kind,
     evidence,
     data,
@@ -133,9 +138,14 @@ function makeSessionSummary(steps) {
 }
 
 export function makeEnvelope({
+  version = 1,
+  roadmapId = undefined,
+  revision = undefined,
+  baseRevision = undefined,
   action = "new",
   capabilityMode = "no-code",
   capabilityDescription = "完全不看代码",
+  capabilityLanguages = undefined,
   goal = "完成一个可验收目标",
   language = "zh-CN",
   hasFrontend = false,
@@ -150,9 +160,20 @@ export function makeEnvelope({
   const resolvedCurrentBranch =
     currentBranch === undefined ? (isGitRepo ? integrationBranch : null) : currentBranch;
   const metadata = {
-    version: 1,
+    version,
+    ...(version === 2
+      ? {
+          roadmapId: roadmapId || "rm_fixture0001",
+          revision: revision ?? 1,
+          baseRevision: baseRevision ?? null,
+        }
+      : {}),
     action,
-    capability: { mode: capabilityMode, description: capabilityDescription },
+    capability: {
+      mode: capabilityMode,
+      description: capabilityDescription,
+      ...(capabilityLanguages === undefined ? {} : { languages: capabilityLanguages }),
+    },
     goal,
     language,
     project: { hasFrontend },
