@@ -85,7 +85,7 @@ AI 给你列了一份十几条的技术计划：
 
 ➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：`web/task-list/**`
 
-🌿 Git｜从当前干净基线新建整合分支：`ir/task-list`｜验收通过后提交｜本步不推送
+🌿 Git｜从当前干净基线新建整合分支：`ir/task-list/integration`｜验收通过后提交｜本步不推送
 
 📋 第 1 步 — 复制以下提示词发给开发 AI：
 
@@ -232,9 +232,22 @@ Roadmap 会先把共享规则定下来，再把文件互不重叠的工作放进
 
 你只需要把 2A、2B 的提示词分别发到两个新 Session。每个 Session 都会看到自己的文件范围；如果必须碰到其他 Session 的文件，它应该停下来报告，而不是继续修改。
 
-如果多个 AI 对话共用同一份项目文件，它们不会各自保存版本，避免把别人的改动混进来；最后再由一个专门的整合对话统一收口。
+Skill 会先判断你实际用哪种方式，不再把所有工具都写成同一套 Git 操作：
 
-如果工具支持 Worktree，可以把它理解成“给每个 AI 一份互不干扰的项目副本”，这时就优先使用。
+| 你现在怎么开发 | Roadmap 会怎么安排 | 你需要做什么 |
+|---|---|---|
+| Codex 给每个任务独立项目副本 | 每个步骤使用一个 Codex Worktree 任务 | 从已通过的共同起点新建任务，再粘贴对应提示词 |
+| Claude Code CLI 或 Desktop | 每个步骤使用一个 Claude Worktree Session | CLI 用 `claude --worktree 名称`；Desktop 点新建 Code Session |
+| 工具没有自动隔离 | 开发 AI 创建手动 Worktree | 你只粘贴提示词，Git 命令由 AI 处理 |
+| 几个 Session 共用同一个项目目录 | 各自只改互不重叠的文件，期间谁都不提交 | 分别粘贴提示词，最后把结果交给一个整合 Session |
+
+Worktree 可以理解成“给每个 AI 一份互不干扰的项目副本”。Claude Code 的 CLI 和 Desktop 都有官方 Worktree 流程；Codex App 也提供内置 Worktree 支持。详见 [Claude Code Worktree 文档](https://code.claude.com/docs/en/worktrees) 与 [OpenAI Codex 使用说明](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan)。
+
+每个并行批次开始前，Roadmap 会记录一个 `baseCommit`。它就是“大家共同复制的、已经被你验收过的版本”。任何 Session 发现自己的版本不包含这个起点，都必须停止，不能在旧版本上继续做。
+
+Claude Code 有一个容易踩的坑：默认 Worktree 可能从远程默认分支开始。如果刚通过的改动还只在本地，Roadmap 会要求先从本地 `HEAD` 开始并核对共同起点，避免新 Session 看不到刚刚完成的工作。
+
+如果几个 AI 对话共用同一份项目文件，它们在并行阶段都不能切换分支、暂存或提交，避免把别人的改动一起保存；最后只由一个专门的整合对话统一检查和提交。
 
 Roadmap 只在满足这些条件时标为并行：
 
@@ -243,6 +256,8 @@ Roadmap 只在满足这些条件时标为并行：
 - 后面有一个单独的整合步骤负责联调和整体复验。
 
 无法安全划分时会直接标为 `➡️ 串行 Session`。Skill 不会自动开启 Session、创建 worktree 或合并代码。
+
+并行结果清理也有顺序：先确认用户已经通过，再确认整合完成且没有未保存改动，最后才归档 Session、删除临时 Worktree 或清理步骤分支。中间任一步说不清楚，就保留现场并停止。
 
 ---
 
@@ -257,7 +272,7 @@ Roadmap 生成前会只读检查仓库，并直接告诉你：
 工作区：clean
 当前分支：main
 GitHub：已连接（origin） / 未连接（不影响本地并行）
-整合分支：ir/task-list
+整合分支：ir/task-list/integration
 提交：每个步骤验收通过后
 推送：整个 Roadmap 最终验收通过，并且你明确同意后
 ```
@@ -267,19 +282,21 @@ GitHub 不是并行开发的前提。本地 Git 分支和 worktree 已经能隔�
 分支生命周期固定为：
 
 ```text
-从当前干净基线创建整合分支 ir/task-list
+从当前干净基线创建整合分支 ir/task-list/integration
             │
             ├─ 开始子步骤 2A 时，新建 ir/task-list/step-02
             └─ 开始子步骤 2B 时，新建 ir/task-list/step-03
                          ↓
               两个步骤分别验收通过后提交
                          ↓
-              整合 Session 合回 ir/task-list
+              整合 Session 合回 ir/task-list/integration
                          ↓
               用户完成整个 Roadmap 的最终复验
                          ↓
               用户明确说“可以推送”后才 push
 ```
+
+整合分支特意使用 `ir/task-list/integration`，步骤分支使用 `ir/task-list/step-02`。它们是同级名字；不要先建 `ir/task-list` 再建它的“下级分支”，Git 会直接拒绝这种命名。
 
 如果工作区已有未提交改动，Roadmap 会先安排“保护基线”。开发 AI 必须先说明现状并等你决定，不能自行 stash、提交、覆盖或清理你的改动。
 
@@ -292,7 +309,7 @@ GitHub 不是并行开发的前提。本地 Git 分支和 worktree 已经能隔�
 
 ➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：`web/task-list/**`
 
-🌿 Git｜从当前干净基线新建整合分支：`ir/task-list`｜验收通过后提交｜本步不推送
+🌿 Git｜从当前干净基线新建整合分支：`ir/task-list/integration`｜验收通过后提交｜本步不推送
 
 📋 第 1 步 — 复制以下提示词发给开发 AI：
 

@@ -1,0 +1,83 @@
+[
+  {
+    "name": "Codex 托管 Worktree",
+    "host": "codex",
+    "workspaceStrategy": "codex-managed-worktree",
+    "baseCommit": "abc1234",
+    "userAction": "从已通过的项目版本新建两个 Worktree 任务，分别粘贴 2A 和 2B 的提示词。",
+    "sessionRules": [
+      "每个任务先确认当前版本包含 abc1234。",
+      "只修改自己的文件范围；宿主管理的 detached 状态不要求切换分支。",
+      "用户验收通过后才提交，并把提交交给整合 Session。"
+    ],
+    "failureRecovery": "版本不含 abc1234 或不是独立目录时停止，不在错误基线上继续。",
+    "cleanup": "整合完成且没有未保存改动后，再归档任务或移除 Worktree。"
+  },
+  {
+    "name": "Claude Code 托管 Worktree",
+    "host": "claude-code",
+    "workspaceStrategy": "claude-managed-worktree",
+    "baseCommit": "def5678",
+    "userAction": "CLI 分别运行 claude --worktree step-2a 和 claude --worktree step-2b，或在 Desktop 新建两个 Code Session。",
+    "sessionRules": [
+      "每个 Worktree 先确认包含本地已通过的 def5678。",
+      "默认远程基线不含 def5678 时，改为从本地 HEAD 开始。",
+      "用户验收通过后才提交；退出时有待整合改动就保留 Worktree。"
+    ],
+    "failureRecovery": "信任、依赖或基线核对失败时停止，不回到主目录并行修改。",
+    "cleanup": "整合完成且结果已保存后，再归档 Session 或移除 Worktree。"
+  },
+  {
+    "name": "开发 AI 创建手动 Worktree",
+    "host": "other-supported-host",
+    "workspaceStrategy": "manual-worktree",
+    "baseCommit": "987fedc",
+    "userAction": "只粘贴各步骤提示词，Worktree 和分支由开发 AI 创建。",
+    "sessionRules": [
+      "整合分支使用 ir/example/integration，步骤分支使用 ir/example/step-02。",
+      "每个 Worktree 都从 987fedc 开始并只修改自己的文件范围。",
+      "用户验收通过后才提交。"
+    ],
+    "failureRecovery": "Worktree 创建或基线核对失败时停止，不退化为共享目录切分支。",
+    "cleanup": "整合完成且确认没有未提交文件后，再移除 Worktree 和已合并步骤分支。"
+  },
+  {
+    "name": "多个 Session 共用目录",
+    "host": "codex-or-claude-code",
+    "workspaceStrategy": "shared-directory",
+    "baseCommit": "456cafe",
+    "userAction": "新建多个普通 Session，分别粘贴文件范围互不重叠的提示词。",
+    "sessionRules": [
+      "并行期间所有 Session 都不切分支、不暂存、不提交。",
+      "每个 Session 只修改自己的文件范围。",
+      "用户验收通过只代表可进入整合，由唯一整合 Session 统一提交。"
+    ],
+    "failureRecovery": "发现文件重叠、意外提交或需要修改公共文件时，停止整个并行批次。",
+    "cleanup": "不创建临时 Worktree；整合 Session 核对全部改动并在最终验收后提交。"
+  },
+  {
+    "name": "无法确认安全隔离",
+    "host": "unknown",
+    "workspaceStrategy": null,
+    "baseCommit": null,
+    "userAction": "不需要开启多个 Session，Roadmap 自动改为串行。",
+    "sessionRules": [
+      "不猜测宿主已经隔离。",
+      "不在未知共同起点上安排并行。"
+    ],
+    "failureRecovery": "改为一个 Session 按顺序开发。",
+    "cleanup": "没有并行资源需要清理。"
+  },
+  {
+    "name": "OpenCode V1 不支持",
+    "host": "opencode",
+    "workspaceStrategy": null,
+    "baseCommit": null,
+    "userAction": "V1 不生成 OpenCode 专用 Session 指令。",
+    "sessionRules": [
+      "不复用 Codex 或 Claude Code 指令假装兼容。"
+    ],
+    "failureRecovery": "保留手动 Skill 使用说明，等待未来独立适配。",
+    "cleanup": "无。"
+  }
+]

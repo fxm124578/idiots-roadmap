@@ -19,7 +19,7 @@
 启用时输出：
 
 ```html
-<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能创建并查看任务","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"github","remoteName":"origin","integrationBranch":"ir/task-list","pushPolicy":"manual-after-final-acceptance"}} -->
+<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能创建并查看任务","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"github","remoteName":"origin","integrationBranch":"ir/task-list/integration","pushPolicy":"manual-after-final-acceptance"}} -->
 ...完整 Roadmap Markdown...
 <!-- IDIOTS_ROADMAP:END -->
 ```
@@ -68,7 +68,7 @@
 - 工作区：clean
 - 当前分支：main
 - GitHub：已连接（origin）
-- 整合分支：ir/task-list
+- 整合分支：ir/task-list/integration
 - 提交时机：每个步骤验收通过后
 - 推送时机：整合验收通过且用户明确同意后
 
@@ -249,25 +249,68 @@ V2 repository metadata 增加：
 {
   "workspaceStrategy": "codex-managed-worktree",
   "baseCommit": "<accepted commit>",
-  "integrationBranch": "ir/example"
+  "integrationBranch": "ir/example/integration"
 }
 ```
 
 `workspaceStrategy` 只能是：
 
-- `codex-managed-worktree`：用户在 Codex 创建新 Worktree 任务；宿主负责目录隔离。开发 AI 先确认当前任务基于 `baseCommit`，正常 detached 状态不当作 dirty 错误。
-- `claude-managed-worktree`：通过 Claude Code CLI、Desktop 或隔离 Session 创建 Worktree；开始前确认 base ref 对应 `baseCommit`。
-- `manual-worktree`：开发 AI 创建独立 Worktree 和分支，用户不执行 Git 命令；创建失败时停止，不退化为共享目录切分支。
-- `shared-directory`：多个 Session 共用项目目录；并行阶段不切分支、不暂存、不提交，只修改互不重叠文件，由整合 Session 统一检查和提交。
+- `codex-managed-worktree`：当前宿主是 Codex，且用户为每个并行步骤新建了独立 Worktree 任务。
+- `claude-managed-worktree`：当前宿主是 Claude Code，且 CLI `--worktree`、Desktop Code Session 或已有 Worktree 为每个并行步骤提供隔离。
+- `manual-worktree`：宿主没有托管隔离，但开发 AI 能在本地 Git 仓库中安全创建独立 Worktree。
+- `shared-directory`：多个 Session 明确共用同一个项目目录，且允许文件范围完全不重叠。
+
+选择顺序：
+
+1. 先判断宿主是否已经为每个任务提供独立 Worktree；是则选择对应的 Codex 或 Claude strategy。
+2. 宿主没有托管隔离时，再判断开发 AI 能否从已验收的 `baseCommit` 创建手动 Worktree。
+3. 只有明确知道多个 Session 共用同一目录、文件范围完全不重叠且有唯一整合 Session 时，才选择 `shared-directory`。
+4. 无法确认宿主、目录隔离、`baseCommit` 或文件范围时，取消并行并改为串行。
+
+#### Codex 托管 Worktree
+
+- 开始条件：本地 Git 可用，当前共同基线已经验收并提交；用户从该项目为每个并行步骤新建一个 Worktree 任务。
+- 开始动作：用户只需把对应步骤提示词发给新任务。开发 AI 核对当前 `HEAD` 是否包含 `baseCommit`，并核对允许文件范围。
+- detached 状态：宿主管理的 Worktree 可能不在用户命名分支上；这本身不是工作区脏乱，不得为了“修复”而切换主目录分支。需要整合时保留可识别的提交哈希。
+- 验收后：用户说通过后，该 Worktree 才提交当前步骤文件，并把提交交给整合 Session。
+- 失败恢复：基线不匹配、不是独立目录或出现范围外修改时停止，不在错误基线上继续。
+- 清理：整合完成且确认没有未提交改动后，由宿主归档任务或按宿主流程移除 Worktree；不得先删后问。
+
+#### Claude Code 托管 Worktree
+
+- 开始条件：项目是 Git 仓库，共同基线已提交。CLI 可用 `claude --worktree <name>`；Claude Desktop 的新 Code Session 默认使用独立 Worktree。
+- 共同基线：Claude Code 默认可能从远程默认分支建立 Worktree；若本轮基线只存在本地，必须先让 Worktree 从本地 `HEAD` 开始，并核对其包含 `baseCommit`。
+- 开始动作：每个并行步骤使用不同 Worktree 名称或不同 Desktop Session，再发送各自提示词。
+- 验收后：用户说通过后才提交。退出 Session 时若仍有改动，必须选择保留，不能把待整合结果当作临时目录删除。
+- 失败恢复：工作区信任、基线、依赖或忽略文件缺失导致无法运行时停止并说明；不得退回主目录同时开发。
+- 清理：整合完成并确认结果已保存后，再归档 Desktop Session 或移除 Worktree。需要本地环境文件时，交由开发 AI 按项目规则准备，不让用户手工搬运密钥。
+
+#### 手动 Worktree
+
+- 开始条件：宿主没有托管隔离；本地 Git、干净且已提交的 `baseCommit`、可写的独立目录都可用。
+- 开始动作：开发 AI 为每个步骤创建独立 Worktree 和同级步骤分支；用户不执行 Git 命令。
+- 分支命名：整合分支使用 `ir/<goal>/integration`，步骤分支使用 `ir/<goal>/<step-id>`，避免 Git 引用前缀冲突。
+- 验收后：用户说通过后才提交，并把提交交给整合 Session。
+- 失败恢复：创建、基线核对或依赖准备失败立即停止；不得退化为在共享目录切换分支。
+- 清理：整合完成、确认无未提交文件后再移除 Worktree 和已合并步骤分支。
+
+#### 共享目录
+
+- 开始条件：无法创建 Worktree，但多个 Session 确定指向同一项目目录；所有并行步骤的允许文件范围完全不重叠。
+- 开始动作：用户分别新建普通 Session 并发送提示词。所有 Session 保持当前分支，不切分支、不暂存、不提交。
+- 开发范围：每个 Session 只改声明文件；发现需要公共文件、锁文件或另一个 Session 的范围时立即停止。
+- 验收后：用户说通过只代表该结果可进入整合，不进行提交。
+- 失败恢复：出现文件重叠、意外提交、分支变化或共同文件需求时，停止整个并行批次，交给整合 Session 判断，不让各 Session 自行覆盖。
+- 清理：没有额外 Worktree 或步骤分支；唯一整合 Session 核对全部改动、运行联调并在最终验收后统一提交。
 
 共同规则：
 
-- 并行批次开始前必须有已经通过用户验收的 `baseCommit`。
-- 每个并行步骤记录 strategy、允许文件范围和共同基线。
+- 并行批次开始前必须有已经通过用户验收的 `baseCommit`；不能用分支名、“最新版本”或未提交工作代替。
+- 每个并行步骤记录同一个 strategy、允许文件范围和 `baseCommit`。
 - 独立 Worktree 分支只有用户验收通过后才能提交；共享目录并行步骤不提交。
 - 并行批次后的下一批必须是唯一串行整合批次，并依赖该批全部步骤。
-- 整合完成后按 strategy 清理临时 Worktree 和分支；清理不得使用破坏用户数据的命令。
-- V1 不实现 OpenCode；未来使用独立适配器，不复用当前 hooks 假装兼容。
+- Skill 只生成指令，不声称已经自动新建 Session、Worktree、分支或提交。
+- OpenCode 在 V1 中保持不支持；未来使用独立适配器，不复用 Codex/Claude 指令假装兼容。
 
 ### 本轮实现边界
 
@@ -277,7 +320,7 @@ V2 repository metadata 增加：
 ## 完整示例
 
 ````html
-<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能查看任务列表","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"none","remoteName":null,"integrationBranch":"ir/task-list","pushPolicy":"manual-after-final-acceptance"}} -->
+<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能查看任务列表","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"none","remoteName":null,"integrationBranch":"ir/task-list/integration","pushPolicy":"manual-after-final-acceptance"}} -->
 # Idiots Roadmap：查看任务列表
 
 <!-- IR_SECTION:goal -->
@@ -302,7 +345,7 @@ V2 repository metadata 增加：
 - 工作区：clean
 - 当前分支：main
 - GitHub：未连接（不影响本地并行）
-- 整合分支：ir/task-list
+- 整合分支：ir/task-list/integration
 - 提交时机：每个步骤验收通过后
 - 推送时机：未连接远程仓库，本 Roadmap 不推送
 
@@ -314,14 +357,14 @@ V2 repository metadata 增加：
 <!-- IR_SECTION:steps -->
 ## 开发步骤
 
-<!-- IR_STEP {"id":"step-01","label":"1","status":"pending","kind":"frontend","evidence":"ui","data":"mock","batch":1,"execution":"serial","dependsOn":[],"files":["web/task-list/**"],"gitAction":"create-integration-branch","branch":"ir/task-list","push":"none"} -->
+<!-- IR_STEP {"id":"step-01","label":"1","status":"pending","kind":"frontend","evidence":"ui","data":"mock","batch":1,"execution":"serial","dependsOn":[],"files":["web/task-list/**"],"gitAction":"create-integration-branch","branch":"ir/task-list/integration","push":"none"} -->
 **🧩 子步骤 1：可点击的任务列表**
 
 <!-- IR_FIELD:session -->
 ➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：web/task-list/**
 
 <!-- IR_FIELD:git -->
-🌿 Git｜从 main 的干净基线新建整合分支：ir/task-list｜验收通过后提交｜本步不推送
+🌿 Git｜从 main 的干净基线新建整合分支：ir/task-list/integration｜验收通过后提交｜本步不推送
 
 <!-- IR_FIELD:prompt -->
 📋 第 1 步 — 复制以下提示词发给开发 AI：
@@ -334,7 +377,7 @@ V2 repository metadata 增加：
 - 只修改这些文件或目录：web/task-list/**。
 - 若需要改动范围外文件或发现与其他 Session 冲突，立即停止并说明。
 - 开始前确认所有前置步骤已经通过；不要改动其他未完成 Session 的工作。
-- 从当前 main 的干净基线新建并切换到 ir/task-list，再开始本步开发。
+- 从当前 main 的干净基线新建并切换到 ir/task-list/integration，再开始本步开发。
 - 保留用户已有改动，不得擅自 stash、覆盖或清理。
 - 开发完成后先停止；收到“1 通过，请继续。”后才提交当前文件范围。
 - 本步骤禁止推送远程。
@@ -370,14 +413,14 @@ V2 repository metadata 增加：
 
 <!-- IR_STEP_END -->
 
-<!-- IR_STEP {"id":"step-02","label":"2","status":"pending","kind":"integration","evidence":"ui","data":"real","batch":2,"execution":"serial","dependsOn":["step-01"],"files":["web/task-list/**","server/task-read/**"],"gitAction":"stay","branch":"ir/task-list","push":"none"} -->
+<!-- IR_STEP {"id":"step-02","label":"2","status":"pending","kind":"integration","evidence":"ui","data":"real","batch":2,"execution":"serial","dependsOn":["step-01"],"files":["web/task-list/**","server/task-read/**"],"gitAction":"stay","branch":"ir/task-list/integration","push":"none"} -->
 **🧩 子步骤 2：接入真实任务数据**
 
 <!-- IR_FIELD:session -->
 ➡️ 串行 Session｜第 2 批｜等待：子步骤 1｜文件范围：web/task-list/**、server/task-read/**
 
 <!-- IR_FIELD:git -->
-🌿 Git｜继续使用整合分支：ir/task-list｜验收通过后提交｜本步不推送
+🌿 Git｜继续使用整合分支：ir/task-list/integration｜验收通过后提交｜本步不推送
 
 <!-- IR_FIELD:prompt -->
 📋 第 1 步 — 复制以下提示词发给开发 AI：
