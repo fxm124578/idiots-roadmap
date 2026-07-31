@@ -26,6 +26,7 @@ export function makeStep({
   const fileScopes = files || [`work/${id}/**`];
   const resolvedGitAction = gitAction || (execution === "parallel" ? "create-branch" : "stay");
   const resolvedBranch = branch || (execution === "parallel" ? `ir/${id}` : "ir/roadmap");
+  const sharedDirectoryStep = execution === "parallel" && resolvedGitAction === "stay";
   const waitingFor = dependsOn.length > 0 ? dependsOn.join("、") : "无";
   const sessionLabel =
     execution === "parallel"
@@ -40,9 +41,11 @@ export function makeStep({
     "prepare-baseline": "保护现有改动并建立干净基线",
   }[resolvedGitAction];
   const pushText = push === "none" ? "本步不推送" : "整合验收通过且你明确同意后才推送";
-  const gitLabel = `${resolvedGitAction === "merge-branches" ? "🔗" : "🌿"} Git｜${gitActionText}：${resolvedBranch}｜验收通过后提交｜${pushText}`;
+  const gitLabel = `${resolvedGitAction === "merge-branches" ? "🔗" : "🌿"} Git｜${gitActionText}：${resolvedBranch}｜${sharedDirectoryStep ? "本 Session 不提交" : "验收通过后提交"}｜${pushText}`;
   const sessionSafety =
-    execution === "parallel"
+    sharedDirectoryStep
+      ? "多个 Session 共用目录：不要切换分支、暂存或提交，只修改声明范围，由整合 Session 统一收口。"
+      : execution === "parallel"
       ? "宿主支持独立 worktree 时优先使用；多个 Session 共享目录时不要切换分支、暂存或提交，由整合 Session 统一收口。"
       : "开始前确认所有前置步骤已经通过；不要改动其他未完成 Session 的工作。";
   return `<!-- IR_STEP ${JSON.stringify({
@@ -83,7 +86,7 @@ ${gitLabel}
 - ${sessionSafety}
 - Git 动作：${gitActionText}，目标分支为 ${resolvedBranch}。
 - 保留用户已有改动；不要擅自 stash、覆盖、清理或把范围外改动带进提交。
-- 在我验收通过前不要提交；收到“${displayLabel} 通过，请继续。”后，只提交当前文件范围。
+- ${sharedDirectoryStep ? "本 Session 即使验收通过也不提交；只把结果留给唯一整合 Session 统一检查和提交。" : `在我验收通过前不要提交；收到“${displayLabel} 通过，请继续。”后，只提交当前文件范围。`}
 - ${push === "none" ? "本步骤禁止推送远程。" : "只有整合验收通过且我再次明确同意后才能推送。"}
 - 运行必要技术检查。
 - 完成后停止并等待我的验收。
@@ -155,6 +158,8 @@ export function makeEnvelope({
   remoteProvider = "none",
   remoteName = null,
   integrationBranch = "ir/roadmap",
+  workspaceStrategy = undefined,
+  baseCommit = undefined,
   steps = [makeStep()],
 } = {}) {
   const resolvedCurrentBranch =
@@ -185,6 +190,8 @@ export function makeEnvelope({
       remoteName,
       integrationBranch,
       pushPolicy: "manual-after-final-acceptance",
+      ...(workspaceStrategy === undefined ? {} : { workspaceStrategy }),
+      ...(baseCommit === undefined ? {} : { baseCommit }),
     },
   };
   const markdown = `# Idiots Roadmap：${goal}

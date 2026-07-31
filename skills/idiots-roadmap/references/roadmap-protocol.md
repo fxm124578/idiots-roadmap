@@ -160,16 +160,16 @@
 - `dependsOn` 是更早批次中已存在步骤 ID 的数组；依赖步骤全部通过后，当前步骤才能开始。
 - `files` 是当前 Session 唯一允许修改的项目相对路径或目录范围；不得使用绝对路径、`..` 或反斜杠。
 - `gitAction` 使用 `stay`、`create-integration-branch`、`create-branch`、`merge-branches`、`initialize` 或 `prepare-baseline`。
-- `branch` 是当前步骤的目标分支。并行步骤必须使用唯一子分支；串行与整合步骤使用 `repository.integrationBranch`。
+- `branch` 是当前步骤的目标分支。独立 Worktree 的并行步骤使用唯一同级步骤分支；`shared-directory` 的并行步骤使用 `repository.integrationBranch` 且 `gitAction:"stay"`。
 - `push` 使用 `none` 或 `after-acceptance-with-approval`。并行步骤只能为 `none`；只有存在远程仓库、位于整合分支的最后一个串行步骤可以在最终验收和再次授权后推送。
 - 同一并行批次的 `files` 不得重叠。无法明确划分文件范围时必须改为串行。
-- 每个并行批次后必须有一个更晚的串行 `kind:"integration"`、`gitAction:"merge-branches"` 步骤，其 `dependsOn` 包含该批全部步骤。
+- 每个并行批次后的下一批必须只有一个串行 `kind:"integration"` 步骤，其 `dependsOn` 包含该批全部步骤。独立 Worktree 使用 `gitAction:"merge-branches"`；`shared-directory` 使用 `gitAction:"stay"`，直接联调当前目录中的改动。
 - `IR_FIELD:session` 必须与元数据一致：串行使用 `➡️`，并行使用 `🔀`，并显示批次、等待步骤和文件范围。
 - `IR_FIELD:git` 必须显示本步 Git 动作、目标分支、验收后提交和推送策略。
 - 开发提示词必须包含完整的 `IR_GUARD`，并用自然语言说明具体实现范围、技术检查和停止条件。
 - 开发提示词必须包含完整的 `IR_SESSION_GUARD`，并说明文件范围、冲突时停止，以及 worktree/共享目录边界；共享目录中的并行 Session 不得切换分支、暂存或提交。
 - 开发提示词必须包含完整的 `IR_GIT_GUARD`；验收前不提交、没有再次授权不推送，并保留用户已有改动。
-- 串行整合步骤必须先确认所有依赖已通过；共享目录直接联调，独立 worktree 合并已确认提交；只处理冲突、联调和回归。
+- 串行整合步骤必须先确认所有依赖已通过；共享目录直接联调且是该批唯一允许提交的 Session，独立 Worktree 合并已确认提交；只处理冲突、联调和回归。
 - 当前不是 Git 仓库时，第一步使用 `gitAction:"initialize"`；工作区为 `dirty`、`unknown` 或 detached 时，第一步使用 `prepare-baseline`；干净但当前不在整合分支时，第一步使用 `create-integration-branch`。
 - 用户验收使用 Markdown 列表，必须有 1–2 项。
 - 无代码模式不得使用 `code` 或 `diff` 作为 evidence。
@@ -298,15 +298,15 @@ V2 repository metadata 增加：
 
 - 开始条件：无法创建 Worktree，但多个 Session 确定指向同一项目目录；所有并行步骤的允许文件范围完全不重叠。
 - 开始动作：用户分别新建普通 Session 并发送提示词。所有 Session 保持当前分支，不切分支、不暂存、不提交。
-- 开发范围：每个 Session 只改声明文件；发现需要公共文件、锁文件或另一个 Session 的范围时立即停止。
-- 验收后：用户说通过只代表该结果可进入整合，不进行提交。
+- 开发范围：每个 Session 只改声明文件；发现需要公共文件、锁文件或另一个 Session 的范围时立即停止。步骤使用 `gitAction:"stay"` 和整合分支，并在提示词中明确“不切分支、不暂存、不提交”。
+- 验收后：用户说通过只代表该结果可进入整合，不进行提交；提示词必须原样包含“本 Session 即使验收通过也不提交”。
 - 失败恢复：出现文件重叠、意外提交、分支变化或共同文件需求时，停止整个并行批次，交给整合 Session 判断，不让各 Session 自行覆盖。
 - 清理：没有额外 Worktree 或步骤分支；唯一整合 Session 核对全部改动、运行联调并在最终验收后统一提交。
 
 共同规则：
 
 - 并行批次开始前必须有已经通过用户验收的 `baseCommit`；不能用分支名、“最新版本”或未提交工作代替。
-- 每个并行步骤记录同一个 strategy、允许文件范围和 `baseCommit`。
+- `repository` 记录同一个 strategy 和 `baseCommit`，每个并行步骤继承它们并在提示词中重复共同基线、允许文件范围和对应动作。
 - 独立 Worktree 分支只有用户验收通过后才能提交；共享目录并行步骤不提交。
 - 并行批次后的下一批必须是唯一串行整合批次，并依赖该批全部步骤。
 - Skill 只生成指令，不声称已经自动新建 Session、Worktree、分支或提交。

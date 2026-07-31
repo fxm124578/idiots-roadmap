@@ -25,6 +25,12 @@ const ALLOWED_GIT_ACTION = new Set([
 const ALLOWED_PUSH = new Set(["none", "after-acceptance-with-approval"]);
 const ALLOWED_REMOTE_PROVIDER = new Set(["github", "other", "none"]);
 const ALLOWED_WORKING_TREE = new Set(["clean", "dirty", "unknown"]);
+const ALLOWED_WORKSPACE_STRATEGY = new Set([
+  "codex-managed-worktree",
+  "claude-managed-worktree",
+  "manual-worktree",
+  "shared-directory",
+]);
 const ALLOWED_TRANSITIONS = new Set(["absent", "new", "update", "new-goal", "recovery"]);
 const STATUS_ORDER = new Map([
   ["pending", 0],
@@ -348,6 +354,18 @@ export function validateRoadmap(envelope) {
   if (metadata?.repository?.pushPolicy !== "manual-after-final-acceptance") {
     errors.push("repository.pushPolicy 必须为 manual-after-final-acceptance。");
   }
+  if (
+    metadata?.repository?.workspaceStrategy !== undefined &&
+    !ALLOWED_WORKSPACE_STRATEGY.has(metadata.repository.workspaceStrategy)
+  ) {
+    errors.push("repository.workspaceStrategy 不是受支持的多 Session 工作方式。");
+  }
+  if (
+    metadata?.repository?.baseCommit !== undefined &&
+    !/^[0-9a-f]{7,64}$/iu.test(metadata.repository.baseCommit)
+  ) {
+    errors.push("repository.baseCommit 必须是已验收共同版本的 Git commit。");
+  }
   if (!metadata?.language || typeof metadata.language !== "string") errors.push("缺少 language。");
   if (Buffer.byteLength(markdown, "utf8") > 1_000_000) errors.push("Roadmap 超过 1 MB。");
 
@@ -542,6 +560,18 @@ export function validateRoadmap(envelope) {
     errors.push("当前不在整合分支时，第一步必须创建并切换到 integrationBranch。");
   }
 
+  const workspaceStrategy = metadata?.repository?.workspaceStrategy;
+  const hasParallelBatch = [...batches.values()].some((batchSteps) => batchSteps.length > 1);
+  if (version === 2 && hasParallelBatch) {
+    if (!ALLOWED_WORKSPACE_STRATEGY.has(workspaceStrategy)) {
+      errors.push("V2 Roadmap 包含并行批次时必须选择 workspaceStrategy。");
+    }
+    if (!/^[0-9a-f]{7,64}$/iu.test(metadata?.repository?.baseCommit || "")) {
+      errors.push("V2 Roadmap 包含并行批次时必须记录已验收的 baseCommit。");
+    }
+  }
+
+  const sortedBatchNumbers = [...batches.keys()].sort((left, right) => left - right);
   for (const [batch, batchSteps] of batches) {
     if (batchSteps.length === 1) {
       if (batchSteps[0].metadata.execution !== "serial") {
@@ -553,17 +583,38 @@ export function validateRoadmap(envelope) {
     if (batchSteps.some((step) => step.metadata.execution !== "parallel")) {
       errors.push(`第 ${batch} 批包含多个步骤时，所有步骤都必须标记为 parallel。`);
     }
+    const sharedDirectory = version === 2 && workspaceStrategy === "shared-directory";
     for (const step of batchSteps) {
-      if (step.metadata.gitAction !== "create-branch") {
-        errors.push(`${step.metadata.id} 是并行步骤，gitAction 必须为 create-branch。`);
+      const expectedGitAction = sharedDirectory ? "stay" : "create-branch";
+      if (step.metadata.gitAction !== expectedGitAction) {
+        errors.push(
+          `${step.metadata.id} 使用 ${workspaceStrategy || "独立 Worktree"} 时，gitAction 必须为 ${expectedGitAction}。`,
+        );
       }
-      if (step.metadata.branch === metadata?.repository?.integrationBranch) {
-        errors.push(`${step.metadata.id} 的并行分支不能与整合分支相同。`);
+      if (sharedDirectory) {
+        if (step.metadata.branch !== metadata?.repository?.integrationBranch) {
+          errors.push(`${step.metadata.id} 共用目录时必须留在 integrationBranch。`);
+        }
+        const prompt = fieldContent(step, "prompt") || "";
+        const hasSharedDirectoryGuard =
+          prompt.includes("不要切换分支、暂存或提交") ||
+          prompt.includes("不切分支、不暂存、不提交") ||
+          prompt.includes("不切换分支、不暂存、不提交");
+        if (!hasSharedDirectoryGuard) {
+          errors.push(`${step.metadata.id} 共用目录时必须明确不切分支、不暂存、不提交。`);
+        }
+        if (!prompt.includes("本 Session 即使验收通过也不提交")) {
+          errors.push(`${step.metadata.id} 共用目录时必须明确验收通过后仍由整合 Session 统一提交。`);
+        }
+      } else {
+        if (step.metadata.branch === metadata?.repository?.integrationBranch) {
+          errors.push(`${step.metadata.id} 的并行分支不能与整合分支相同。`);
+        }
+        if (parallelBranches.has(step.metadata.branch)) {
+          errors.push(`并行分支重复：${step.metadata.branch}。`);
+        }
+        parallelBranches.add(step.metadata.branch);
       }
-      if (parallelBranches.has(step.metadata.branch)) {
-        errors.push(`并行分支重复：${step.metadata.branch}。`);
-      }
-      parallelBranches.add(step.metadata.branch);
       if (step.metadata.push !== "none") {
         errors.push(`${step.metadata.id} 的并行分支不得单独推送。`);
       }
@@ -583,18 +634,21 @@ export function validateRoadmap(envelope) {
       }
     }
     const memberIds = batchSteps.map((step) => step.metadata.id);
-    const hasIntegration = steps.some(
-      (step) =>
-        step.metadata.kind === "integration" &&
-        step.metadata.execution === "serial" &&
-        step.metadata.gitAction === "merge-branches" &&
-        step.metadata.branch === metadata?.repository?.integrationBranch &&
-        step.metadata.batch > batch &&
-        Array.isArray(step.metadata.dependsOn) &&
-        memberIds.every((id) => step.metadata.dependsOn.includes(id)),
-    );
+    const nextBatchNumber = sortedBatchNumbers.find((candidate) => candidate > batch);
+    const nextBatch = nextBatchNumber === undefined ? [] : batches.get(nextBatchNumber) || [];
+    const expectedIntegrationAction = sharedDirectory ? "stay" : "merge-branches";
+    const integrationStep = nextBatch.length === 1 ? nextBatch[0] : null;
+    const hasIntegration =
+      integrationStep?.metadata.kind === "integration" &&
+      integrationStep.metadata.execution === "serial" &&
+      integrationStep.metadata.gitAction === expectedIntegrationAction &&
+      integrationStep.metadata.branch === metadata?.repository?.integrationBranch &&
+      Array.isArray(integrationStep.metadata.dependsOn) &&
+      memberIds.every((id) => integrationStep.metadata.dependsOn.includes(id));
     if (!hasIntegration) {
-      errors.push(`第 ${batch} 批之后必须有一个等待全部并行步骤的串行 integration 步骤。`);
+      errors.push(
+        `第 ${batch} 批之后的下一批必须只有一个等待全部并行步骤的串行 integration 步骤，并使用 ${expectedIntegrationAction}。`,
+      );
     }
   }
 

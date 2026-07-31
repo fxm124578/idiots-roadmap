@@ -55,7 +55,7 @@ description: 把 Plan 模式中的技术计划拆成用户能逐步驱动 AI 开
 - 先确定共享契约，再根据文件所有权划分步骤；只有允许修改的文件或目录互不重叠时，才能把步骤放进同一并行批次。
 - 路由、数据库结构、全局配置、依赖锁文件、权限安全、共享状态和公共设计系统默认串行。若确实需要并行，先用一个串行步骤确定契约和文件归属。
 - 同一并行批次最多安排 3 个 Session。无法明确文件范围或冲突风险时，宁可标为串行。
-- 每个并行批次后必须有一个串行 `integration` 步骤；它依赖该批全部步骤，只负责合并、联调和用户可见的整体复验。
+- 每个并行批次后的下一批必须只有一个串行 `integration` 步骤；它依赖该批全部步骤，只负责合并、联调和用户可见的整体复验。
 - 每步都声明：
   - 所属开发批次；
   - `serial` 或 `parallel`；
@@ -71,7 +71,7 @@ description: 把 Plan 模式中的技术计划拆成用户能逐步驱动 AI 开
 - `codex-managed-worktree`：让用户从已经通过的基线分别新建 Worktree 任务；开发 AI 核对 `baseCommit`。宿主管理的 detached 状态本身不是错误，不要擅自切分支；验收通过后保存可供整合的提交。
 - `claude-managed-worktree`：Claude Code CLI 使用 `claude --worktree <name>`，Desktop 使用新建 Code Session 的自动隔离；开始前确认 Worktree 基于 `baseCommit`。若默认从远程默认分支开始而不包含本地基线，先停止并改用本地 `HEAD` 基线，不能带着旧版本开发。
 - `manual-worktree`：由开发 AI 创建目录和分支，用户不执行 Git 命令。创建、基线核对或环境准备失败时立即停止，不退化为同目录切分支。
-- `shared-directory`：所有并行 Session 留在当前分支，不切分支、不暂存、不提交，只修改声明范围；由唯一整合 Session 检查全部改动后统一提交。
+- `shared-directory`：所有并行 Session 留在整合分支，步骤使用 `gitAction:"stay"`，不切分支、不暂存、不提交，只修改声明范围；提示词原样写明“本 Session 即使验收通过也不提交”，由唯一整合 Session 检查全部改动后统一提交。
 - 整合步骤必须说明：确认全部前置 Session 已通过；共享目录直接联调现有改动，独立 Worktree 则按已确认提交整合；只处理冲突、联调和回归，不顺手扩需求。
 - 每种 strategy 都要写明：如何开始、共同基线、允许文件、验收后动作、失败时怎么停、最终由谁清理。未提交改动或未确认提交存在时不得自动删除 Worktree 或分支。
 - 分支和 worktree 是开发 AI 的隔离手段，不要求用户执行 Git 命令；本 Skill 不创建 Session、分支或 worktree，也不合并代码。
