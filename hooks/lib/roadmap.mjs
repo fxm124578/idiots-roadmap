@@ -7,13 +7,27 @@ const END = /<!--\s*IDIOTS_ROADMAP:END\s*-->/;
 const OPTOUT = /<!--\s*IDIOTS_ROADMAP:OPTOUT\s*-->/;
 const STEP_START = /<!--\s*IR_STEP\s+(\{[^\r\n]*\})\s*-->/g;
 const STEP_END = /<!--\s*IR_STEP_END\s*-->/g;
-const REQUIRED_SECTIONS = ["goal", "capability", "progress", "usage", "steps"];
-const REQUIRED_FIELDS = ["prompt", "boundaries", "acceptance", "checklist", "reply"];
+const REQUIRED_SECTIONS = ["goal", "capability", "progress", "usage", "git", "sessions", "steps"];
+const REQUIRED_FIELDS = ["session", "git", "prompt", "boundaries", "acceptance", "checklist", "reply"];
 const ALLOWED_STATUS = new Set(["pending", "in_progress", "awaiting_acceptance", "completed"]);
 const ALLOWED_KIND = new Set(["frontend", "backend", "integration", "cli", "report", "migration", "infrastructure", "other"]);
 const ALLOWED_EVIDENCE = new Set(["ui", "sample-io", "report", "code", "diff"]);
 const ALLOWED_DATA = new Set(["none", "mock", "real"]);
+const ALLOWED_EXECUTION = new Set(["serial", "parallel"]);
+const ALLOWED_GIT_ACTION = new Set([
+  "stay",
+  "create-integration-branch",
+  "create-branch",
+  "merge-branches",
+  "initialize",
+  "prepare-baseline",
+]);
+const ALLOWED_PUSH = new Set(["none", "after-acceptance-with-approval"]);
+const ALLOWED_REMOTE_PROVIDER = new Set(["github", "other", "none"]);
+const ALLOWED_WORKING_TREE = new Set(["clean", "dirty", "unknown"]);
 const REQUIRED_GUARD = "<!-- IR_GUARD:current-step-only,run-checks,stop-for-acceptance -->";
+const REQUIRED_SESSION_GUARD = "<!-- IR_SESSION_GUARD:file-scope,no-cross-session-edits,stop-on-conflict -->";
+const REQUIRED_GIT_GUARD = "<!-- IR_GIT_GUARD:commit-after-acceptance,no-auto-push,preserve-user-changes -->";
 
 export function findRoadmapPayload(input) {
   const preferredKeys = [
@@ -140,6 +154,8 @@ function validateStepDisplayFormat(step, label) {
     errors.push(`${label} 必须使用加粗的子步骤标题。`);
   }
 
+  const session = step.raw.indexOf("<!-- IR_FIELD:session -->");
+  const git = step.raw.indexOf("<!-- IR_FIELD:git -->");
   const prompt = step.raw.indexOf("<!-- IR_FIELD:prompt -->");
   const boundaries = step.raw.indexOf("<!-- IR_FIELD:boundaries -->");
   const acceptance = step.raw.indexOf("<!-- IR_FIELD:acceptance -->");
@@ -160,6 +176,9 @@ function validateStepDisplayFormat(step, label) {
   if (
     !(
       prompt < fenceOpen &&
+      session < prompt &&
+      git > session &&
+      git < prompt &&
       fenceOpen < boundaries &&
       boundaries < acceptance &&
       acceptance < fenceClose &&
@@ -172,6 +191,54 @@ function validateStepDisplayFormat(step, label) {
     );
   }
   return errors;
+}
+
+function validateBranchName(value) {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 120 &&
+    !value.startsWith("/") &&
+    !value.endsWith("/") &&
+    !value.endsWith(".") &&
+    !value.endsWith(".lock") &&
+    !value.includes("..") &&
+    !value.includes("//") &&
+    !value.includes("@{") &&
+    !/[\s~^:?*[\]\\\u0000-\u001F\u007F]/u.test(value)
+  );
+}
+
+function validateFileScope(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  const scope = value.trim();
+  if (
+    scope.includes("\\") ||
+    scope.includes("\0") ||
+    scope.startsWith("/") ||
+    /^[A-Za-z]:/.test(scope) ||
+    scope.split("/").includes("..")
+  ) {
+    return false;
+  }
+  const wildcard = scope.indexOf("*");
+  if (wildcard >= 0 && !scope.endsWith("/**") && !scope.endsWith("/*")) return false;
+  return !/[?[\]]/.test(scope);
+}
+
+function scopeRoot(value) {
+  return value.trim().replace(/\/\*{1,2}$/, "").replace(/\/+$/, "") || ".";
+}
+
+function scopesOverlap(left, right) {
+  const leftRoot = scopeRoot(left);
+  const rightRoot = scopeRoot(right);
+  if (leftRoot === "." || rightRoot === ".") return true;
+  return (
+    leftRoot === rightRoot ||
+    leftRoot.startsWith(`${rightRoot}/`) ||
+    rightRoot.startsWith(`${leftRoot}/`)
+  );
 }
 
 function listItems(content, checkbox = false) {
@@ -196,6 +263,34 @@ export function validateRoadmap(envelope) {
   if (typeof metadata?.project?.hasFrontend !== "boolean") {
     errors.push("project.hasFrontend 必须为布尔值。");
   }
+  if (typeof metadata?.repository?.isGitRepo !== "boolean") {
+    errors.push("repository.isGitRepo 必须为布尔值。");
+  }
+  if (!ALLOWED_WORKING_TREE.has(metadata?.repository?.workingTree)) {
+    errors.push("repository.workingTree 必须为 clean、dirty 或 unknown。");
+  }
+  if (
+    metadata?.repository?.currentBranch !== null &&
+    !validateBranchName(metadata?.repository?.currentBranch)
+  ) {
+    errors.push("repository.currentBranch 必须为安全的分支名或 null。");
+  }
+  if (!ALLOWED_REMOTE_PROVIDER.has(metadata?.repository?.remoteProvider)) {
+    errors.push("repository.remoteProvider 必须为 github、other 或 none。");
+  }
+  if (metadata?.repository?.remoteProvider === "none") {
+    if (metadata?.repository?.remoteName !== null) {
+      errors.push("没有远程仓库时 repository.remoteName 必须为 null。");
+    }
+  } else if (!metadata?.repository?.remoteName || typeof metadata.repository.remoteName !== "string") {
+    errors.push("存在远程仓库时必须提供 repository.remoteName。");
+  }
+  if (!validateBranchName(metadata?.repository?.integrationBranch)) {
+    errors.push("repository.integrationBranch 不是安全的 Git 分支名。");
+  }
+  if (metadata?.repository?.pushPolicy !== "manual-after-final-acceptance") {
+    errors.push("repository.pushPolicy 必须为 manual-after-final-acceptance。");
+  }
   if (!metadata?.language || typeof metadata.language !== "string") errors.push("缺少 language。");
   if (Buffer.byteLength(markdown, "utf8") > 1_000_000) errors.push("Roadmap 超过 1 MB。");
 
@@ -214,12 +309,16 @@ export function validateRoadmap(envelope) {
 
   const ids = new Set();
   const labels = new Set();
+  const stepIndexes = new Map();
+  const batches = new Map();
+  const parallelBranches = new Set();
   steps.forEach((step, index) => {
     const expectedId = `step-${String(index + 1).padStart(2, "0")}`;
     const meta = step.metadata;
     if (meta.id !== expectedId) errors.push(`第 ${index + 1} 步 ID 应为 ${expectedId}。`);
     if (ids.has(meta.id)) errors.push(`步骤 ID 重复：${meta.id}。`);
     ids.add(meta.id);
+    stepIndexes.set(meta.id, index);
     if (!meta.label || typeof meta.label !== "string") errors.push(`${meta.id || expectedId} 缺少用户可见 label。`);
     if (labels.has(meta.label)) errors.push(`子步骤 label 重复：${meta.label}。`);
     labels.add(meta.label);
@@ -227,6 +326,52 @@ export function validateRoadmap(envelope) {
     if (!ALLOWED_KIND.has(meta.kind)) errors.push(`${meta.id || expectedId} 的 kind 无效。`);
     if (!ALLOWED_EVIDENCE.has(meta.evidence)) errors.push(`${meta.id || expectedId} 的 evidence 无效。`);
     if (!ALLOWED_DATA.has(meta.data)) errors.push(`${meta.id || expectedId} 的 data 无效。`);
+    if (!Number.isInteger(meta.batch) || meta.batch < 1) {
+      errors.push(`${meta.id || expectedId} 的 batch 必须是正整数。`);
+    } else {
+      if (index > 0 && Number.isInteger(steps[index - 1].metadata.batch) && meta.batch < steps[index - 1].metadata.batch) {
+        errors.push(`${meta.id || expectedId} 的 batch 不能小于前一步。`);
+      }
+      if (!batches.has(meta.batch)) batches.set(meta.batch, []);
+      batches.get(meta.batch).push(step);
+    }
+    if (!ALLOWED_EXECUTION.has(meta.execution)) {
+      errors.push(`${meta.id || expectedId} 的 execution 必须为 serial 或 parallel。`);
+    }
+    if (!ALLOWED_GIT_ACTION.has(meta.gitAction)) {
+      errors.push(`${meta.id || expectedId} 的 gitAction 无效。`);
+    }
+    if (!validateBranchName(meta.branch)) {
+      errors.push(`${meta.id || expectedId} 的 branch 不是安全的 Git 分支名。`);
+    }
+    if (!ALLOWED_PUSH.has(meta.push)) {
+      errors.push(`${meta.id || expectedId} 的 push 无效。`);
+    }
+    if (!Array.isArray(meta.dependsOn)) {
+      errors.push(`${meta.id || expectedId} 的 dependsOn 必须是数组。`);
+    } else {
+      for (const dependency of meta.dependsOn) {
+        const dependencyIndex = stepIndexes.get(dependency);
+        if (dependencyIndex === undefined) {
+          errors.push(`${meta.id || expectedId} 的前置步骤 ${dependency} 必须出现在当前步骤之前。`);
+        } else if (
+          Number.isInteger(meta.batch) &&
+          Number.isInteger(steps[dependencyIndex].metadata.batch) &&
+          steps[dependencyIndex].metadata.batch >= meta.batch
+        ) {
+          errors.push(`${meta.id || expectedId} 必须安排在前置步骤 ${dependency} 之后的批次。`);
+        }
+      }
+    }
+    if (!Array.isArray(meta.files) || meta.files.length === 0) {
+      errors.push(`${meta.id || expectedId} 必须声明允许修改的 files 范围。`);
+    } else {
+      for (const fileScope of meta.files) {
+        if (!validateFileScope(fileScope)) {
+          errors.push(`${meta.id || expectedId} 的文件范围无效：${String(fileScope)}。`);
+        }
+      }
+    }
     errors.push(...validateStepDisplayFormat(step, meta.id || expectedId));
 
     for (const field of REQUIRED_FIELDS) {
@@ -234,6 +379,42 @@ export function validateRoadmap(envelope) {
     }
     const prompt = fieldContent(step, "prompt") || "";
     if (!prompt.includes(REQUIRED_GUARD)) errors.push(`${meta.id || expectedId} 的提示词缺少 IR_GUARD。`);
+    if (!prompt.includes(REQUIRED_SESSION_GUARD)) {
+      errors.push(`${meta.id || expectedId} 的提示词缺少 IR_SESSION_GUARD。`);
+    }
+    if (!prompt.includes(REQUIRED_GIT_GUARD)) {
+      errors.push(`${meta.id || expectedId} 的提示词缺少 IR_GIT_GUARD。`);
+    }
+    const session = fieldContent(step, "session") || "";
+    const expectedSessionIcon = meta.execution === "parallel" ? "🔀" : "➡️";
+    if (!session.includes(expectedSessionIcon) || !session.includes(`第 ${meta.batch} 批`)) {
+      errors.push(`${meta.id || expectedId} 的 Session 标记必须与 execution 和 batch 一致。`);
+    }
+    for (const fileScope of Array.isArray(meta.files) ? meta.files : []) {
+      if (!session.includes(fileScope)) {
+        errors.push(`${meta.id || expectedId} 的 Session 标记缺少文件范围 ${fileScope}。`);
+      }
+    }
+    const git = fieldContent(step, "git") || "";
+    if (!git.includes(meta.branch)) {
+      errors.push(`${meta.id || expectedId} 的 Git 标记缺少分支 ${meta.branch}。`);
+    }
+    const gitActionText = {
+      stay: "整合分支",
+      "create-integration-branch": "新建整合分支",
+      "create-branch": "新建独立分支",
+      "merge-branches": "合并",
+      initialize: "初始化本地 Git",
+      "prepare-baseline": "保护现有改动",
+    }[meta.gitAction];
+    const gitIcon = meta.gitAction === "merge-branches" ? "🔗" : "🌿";
+    if (!git.includes(gitIcon) || (gitActionText && !git.includes(gitActionText))) {
+      errors.push(`${meta.id || expectedId} 的 Git 标记必须与 gitAction 一致。`);
+    }
+    const expectedPushText = meta.push === "none" ? "不推送" : "明确同意后才推送";
+    if (!git.includes(expectedPushText)) {
+      errors.push(`${meta.id || expectedId} 的 Git 标记与 push 策略不一致。`);
+    }
     const acceptance = fieldContent(step, "acceptance") || "";
     const acceptanceItems = listItems(acceptance);
     const acceptanceCount = acceptanceItems.length;
@@ -252,6 +433,109 @@ export function validateRoadmap(envelope) {
       errors.push(`${meta.id || expectedId} 在完全不看代码模式下不能使用 ${meta.evidence} 验收。`);
     }
   });
+
+  const firstGitAction = steps[0]?.metadata.gitAction;
+  if (metadata?.repository?.isGitRepo === false && firstGitAction !== "initialize") {
+    errors.push("当前不是 Git 仓库时，第一步必须初始化本地 Git 并建立基线。");
+  } else if (
+    metadata?.repository?.isGitRepo === true &&
+    (["dirty", "unknown"].includes(metadata?.repository?.workingTree) ||
+      metadata?.repository?.currentBranch === null) &&
+    firstGitAction !== "prepare-baseline"
+  ) {
+    errors.push("工作区不是 clean 基线时，第一步必须使用 prepare-baseline 保护现有改动。");
+  } else if (
+    metadata?.repository?.isGitRepo === true &&
+    metadata?.repository?.workingTree === "clean" &&
+    metadata?.repository?.currentBranch !== metadata?.repository?.integrationBranch &&
+    firstGitAction !== "create-integration-branch"
+  ) {
+    errors.push("当前不在整合分支时，第一步必须创建并切换到 integrationBranch。");
+  }
+
+  for (const [batch, batchSteps] of batches) {
+    if (batchSteps.length === 1) {
+      if (batchSteps[0].metadata.execution !== "serial") {
+        errors.push(`第 ${batch} 批只有一个步骤，不能标记为 parallel。`);
+      }
+      continue;
+    }
+    if (batchSteps.length > 3) errors.push(`第 ${batch} 批并行 Session 不得超过 3 个。`);
+    if (batchSteps.some((step) => step.metadata.execution !== "parallel")) {
+      errors.push(`第 ${batch} 批包含多个步骤时，所有步骤都必须标记为 parallel。`);
+    }
+    for (const step of batchSteps) {
+      if (step.metadata.gitAction !== "create-branch") {
+        errors.push(`${step.metadata.id} 是并行步骤，gitAction 必须为 create-branch。`);
+      }
+      if (step.metadata.branch === metadata?.repository?.integrationBranch) {
+        errors.push(`${step.metadata.id} 的并行分支不能与整合分支相同。`);
+      }
+      if (parallelBranches.has(step.metadata.branch)) {
+        errors.push(`并行分支重复：${step.metadata.branch}。`);
+      }
+      parallelBranches.add(step.metadata.branch);
+      if (step.metadata.push !== "none") {
+        errors.push(`${step.metadata.id} 的并行分支不得单独推送。`);
+      }
+    }
+    for (let leftIndex = 0; leftIndex < batchSteps.length; leftIndex += 1) {
+      const left = batchSteps[leftIndex];
+      for (let rightIndex = leftIndex + 1; rightIndex < batchSteps.length; rightIndex += 1) {
+        const right = batchSteps[rightIndex];
+        const leftFiles = Array.isArray(left.metadata.files) ? left.metadata.files : [];
+        const rightFiles = Array.isArray(right.metadata.files) ? right.metadata.files : [];
+        const overlaps = leftFiles.some((leftScope) =>
+          rightFiles.some((rightScope) => scopesOverlap(leftScope, rightScope)),
+        );
+        if (overlaps) {
+          errors.push(`第 ${batch} 批的 ${left.metadata.id} 与 ${right.metadata.id} 文件范围重叠，不能并行。`);
+        }
+      }
+    }
+    const memberIds = batchSteps.map((step) => step.metadata.id);
+    const hasIntegration = steps.some(
+      (step) =>
+        step.metadata.kind === "integration" &&
+        step.metadata.execution === "serial" &&
+        step.metadata.gitAction === "merge-branches" &&
+        step.metadata.branch === metadata?.repository?.integrationBranch &&
+        step.metadata.batch > batch &&
+        Array.isArray(step.metadata.dependsOn) &&
+        memberIds.every((id) => step.metadata.dependsOn.includes(id)),
+    );
+    if (!hasIntegration) {
+      errors.push(`第 ${batch} 批之后必须有一个等待全部并行步骤的串行 integration 步骤。`);
+    }
+  }
+
+  for (const step of steps) {
+    const meta = step.metadata;
+    if (meta.execution === "serial" && meta.gitAction === "create-branch") {
+      errors.push(`${meta.id} 是串行步骤，不应新建独立并行分支。`);
+    }
+    if (
+      meta.push === "after-acceptance-with-approval" &&
+      (step !== steps.at(-1) ||
+        meta.execution !== "serial" ||
+        meta.branch !== metadata?.repository?.integrationBranch)
+    ) {
+      errors.push(`${meta.id} 只有整合分支上的最后一个串行步骤可以在授权后推送。`);
+    }
+    if (metadata?.repository?.remoteProvider === "none" && meta.push !== "none") {
+      errors.push(`${meta.id} 未连接远程仓库，不能安排推送。`);
+    }
+    if (meta.execution === "serial" && meta.branch !== metadata?.repository?.integrationBranch) {
+      errors.push(`${meta.id} 的串行步骤必须使用 integrationBranch。`);
+    }
+  }
+  if (
+    metadata?.repository?.remoteProvider !== "none" &&
+    steps.length > 0 &&
+    steps.at(-1).metadata.push !== "after-acceptance-with-approval"
+  ) {
+    errors.push("已连接远程仓库时，最后一个串行步骤必须标明：最终验收并获得授权后才推送。");
+  }
 
   if (metadata?.capability?.mode === "no-code" && metadata?.project?.hasFrontend && steps.length > 0) {
     const first = steps[0].metadata;
@@ -396,11 +680,16 @@ export function withStoredMetadata(markdown, metadata) {
     capability: metadata.capability,
     language: metadata.language,
     project: metadata.project,
+    repository: metadata.repository,
   })} -->`;
   return `${marker}\n${markdown.replace(/^<!--\s*IR_STORED_META[^\n]*-->\s*/u, "")}`;
 }
 
 export function persistRoadmap({ projectRoot, envelope, now = new Date() }) {
+  const incomingValidation = validateRoadmap(envelope);
+  if (!incomingValidation.valid) {
+    throw new Error(incomingValidation.errors.join("\n"));
+  }
   const paths = resolveSafePaths(projectRoot);
   const oldMarkdown = readExisting(paths.target);
   let markdown = envelope.markdown;
@@ -411,6 +700,10 @@ export function persistRoadmap({ projectRoot, envelope, now = new Date() }) {
       throw new Error("update 的 goal 与现有 Roadmap 不一致；新目标必须使用 action:new。");
     }
     markdown = mergeCompletedSteps(oldMarkdown, markdown);
+    const mergedValidation = validateRoadmap({ ...envelope, markdown });
+    if (!mergedValidation.valid) {
+      throw new Error(`保留已完成步骤后 Roadmap 无效：\n${mergedValidation.errors.join("\n")}`);
+    }
   }
 
   const stored = withStoredMetadata(markdown, envelope.metadata);

@@ -149,5 +149,65 @@
         "boundaries": "只重写未完成步骤。"
       }
     ]
+  },
+  {
+    "name": "前后端多 Session 并行后统一联调",
+    "goal": "并行完成任务详情页和读取接口",
+    "capabilityMode": "code-reader",
+    "capabilityDescription": "能看 JavaScript/TypeScript 基础代码",
+    "hasFrontend": true,
+    "steps": [
+      {
+        "label": "1",
+        "batch": 1,
+        "execution": "serial",
+        "kind": "other",
+        "evidence": "report",
+        "data": "none",
+        "files": ["docs/contracts/task-detail.md"],
+        "visible": "任务详情的数据字段和错误状态被写成一页清楚的约定。",
+        "boundaries": "本步只确定共享契约，不开发页面或接口。"
+      },
+      {
+        "label": "2A",
+        "batch": 2,
+        "execution": "parallel",
+        "dependsOn": ["step-01"],
+        "parallelWith": ["子步骤 2B"],
+        "kind": "frontend",
+        "evidence": "ui",
+        "data": "none",
+        "files": ["web/task-detail/**"],
+        "visible": "一个 Session 按已确定契约完成可打开的任务详情页。",
+        "boundaries": "只修改详情页目录，不改接口、共享路由或全局样式。"
+      },
+      {
+        "label": "2B",
+        "batch": 2,
+        "execution": "parallel",
+        "dependsOn": ["step-01"],
+        "parallelWith": ["子步骤 2A"],
+        "kind": "backend",
+        "evidence": "sample-io",
+        "data": "real",
+        "files": ["server/task-detail/**"],
+        "visible": "另一个 Session 按同一契约完成任务详情读取接口和样例输入输出。",
+        "boundaries": "只修改详情接口目录，不改前端、数据库结构或公共中间件。"
+      },
+      {
+        "label": "3",
+        "batch": 3,
+        "execution": "serial",
+        "dependsOn": ["step-02", "step-03"],
+        "kind": "integration",
+        "gitAction": "merge-branches",
+        "branch": "ir/roadmap",
+        "evidence": "ui",
+        "data": "real",
+        "files": ["web/task-detail/**", "server/task-detail/**", "tests/task-detail/**"],
+        "visible": "整合 Session 接入真实接口，用户可在同一页面复验完整流程。",
+        "boundaries": "只处理两个并行结果的联调和回归，不扩展新功能。"
+      }
+    ]
   }
 ]

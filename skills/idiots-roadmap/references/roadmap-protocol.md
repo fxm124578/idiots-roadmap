@@ -18,7 +18,7 @@
 启用时输出：
 
 ```html
-<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能创建并查看任务","language":"zh-CN","project":{"hasFrontend":true}} -->
+<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能创建并查看任务","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"github","remoteName":"origin","integrationBranch":"ir/task-list","pushPolicy":"manual-after-final-acceptance"}} -->
 ...完整 Roadmap Markdown...
 <!-- IDIOTS_ROADMAP:END -->
 ```
@@ -30,6 +30,12 @@
 - `capability.description` 原样记录用户选择或自定义描述。
 - `goal` 用一句稳定、具体的话描述目标；同一 Roadmap 更新时不要改写。
 - `project.hasFrontend` 必须是布尔值。
+- `repository.isGitRepo` 是当前是否已有本地 Git 仓库。
+- `repository.workingTree` 使用 `clean`、`dirty` 或 `unknown`。
+- `repository.currentBranch` 是只读检测到的当前分支；未初始化或 detached/无法识别时使用 `null`。
+- `repository.remoteProvider` 使用 `github`、`other` 或 `none`；`remoteName` 只记录 remote 名称，不保存带凭据的 URL。
+- `repository.integrationBranch` 是本 Roadmap 的稳定整合分支。
+- `repository.pushPolicy` 固定为 `manual-after-final-acceptance`。
 - JSON 必须在一行内，使用合法双引号。
 
 ## Roadmap 正文
@@ -55,20 +61,42 @@
 ## 使用方法
 ...
 
+<!-- IR_SECTION:git -->
+## Git 状态
+- 本地 Git：已启用
+- 工作区：clean
+- 当前分支：main
+- GitHub：已连接（origin）
+- 整合分支：ir/task-list
+- 提交时机：每个步骤验收通过后
+- 推送时机：整合验收通过且用户明确同意后
+
+<!-- IR_SECTION:sessions -->
+## Session 安排
+- 第 1 批（串行）：子步骤 1
+- 第 2 批（可同时开启多个 Session）：子步骤 2A、子步骤 2B
+- 第 3 批（串行整合）：子步骤 3
+
 <!-- IR_SECTION:steps -->
 ## 开发步骤
 ...
 ````
 
-使用方法应告诉用户：复制当前步骤的提示词给开发 AI；开发 AI 停止后按验收条目检查；明确回复通过后再进行下一步。
+使用方法应告诉用户：按批次开启开发 Session；同一并行批次可同时复制各自提示词；开发 AI 停止后按验收条目检查；其依赖全部通过后再进入下一批。
 
 ## 步骤元数据
 
 每步必须完整使用以下结构：
 
 ````markdown
-<!-- IR_STEP {"id":"step-01","label":"1","status":"pending","kind":"frontend","evidence":"ui","data":"mock"} -->
-**🧩 子步骤 1：可理解的结果名称**
+<!-- IR_STEP {"id":"step-02","label":"2A","status":"pending","kind":"frontend","evidence":"ui","data":"mock","batch":2,"execution":"parallel","dependsOn":["step-01"],"files":["web/task-list/**"],"gitAction":"create-branch","branch":"ir/task-list/step-02","push":"none"} -->
+**🧩 子步骤 2A：可理解的结果名称**
+
+<!-- IR_FIELD:session -->
+🔀 并行 Session｜第 2 批｜可与：子步骤 2B｜等待：子步骤 1｜文件范围：web/task-list/**
+
+<!-- IR_FIELD:git -->
+🌿 Git｜新建独立分支/worktree：ir/task-list/step-02｜验收通过后提交｜本步不推送
 
 <!-- IR_FIELD:prompt -->
 📋 第 1 步 — 复制以下提示词发给开发 AI：
@@ -78,11 +106,20 @@
 
 🎯 要求：
 - 交付一个用户能直接验收的具体结果。
+- 只修改这些文件或目录：web/task-list/**。
+- 若需要改动范围外文件或发现与其他 Session 冲突，立即停止并说明。
+- 从已通过的整合基线新建 ir/task-list/step-02；宿主支持独立 worktree 时优先使用。
+- 多个 Session 共享目录时不要切换分支、暂存或提交，由整合 Session 统一收口。
+- 保留用户已有改动，不得擅自 stash、覆盖或清理。
+- 开发完成后先停止；收到“2A 通过，请继续。”后才提交当前文件范围。
+- 本步骤禁止推送远程。
 - ...
 
 ⚠️ 约束：...
 
 <!-- IR_GUARD:current-step-only,run-checks,stop-for-acceptance -->
+<!-- IR_SESSION_GUARD:file-scope,no-cross-session-edits,stop-on-conflict -->
+<!-- IR_GIT_GUARD:commit-after-acceptance,no-auto-push,preserve-user-changes -->
 
 【🚧 边界条件】
 <!-- IR_FIELD:boundaries -->
@@ -100,7 +137,7 @@
 - [ ] ...
 
 <!-- IR_FIELD:reply -->
-💬 第 3 步 — 回复：`1 通过，请继续。`
+💬 第 3 步 — 回复：`2A 通过，请继续。`
 
 <!-- IR_STEP_END -->
 ````
@@ -117,7 +154,22 @@
 - `kind` 使用 `frontend`、`backend`、`integration`、`cli`、`report`、`migration`、`infrastructure` 或 `other`。
 - `evidence` 使用 `ui`、`sample-io`、`report`、`code` 或 `diff`。
 - `data` 使用 `none`、`mock` 或 `real`。
+- `batch` 是从 1 开始的正整数，按 Roadmap 顺序只能递增或保持不变。
+- `execution` 使用 `serial` 或 `parallel`。同一批只有一个步骤时必须为 `serial`；同一批有多个步骤时必须全部为 `parallel`，且最多 3 个。
+- `dependsOn` 是更早批次中已存在步骤 ID 的数组；依赖步骤全部通过后，当前步骤才能开始。
+- `files` 是当前 Session 唯一允许修改的项目相对路径或目录范围；不得使用绝对路径、`..` 或反斜杠。
+- `gitAction` 使用 `stay`、`create-integration-branch`、`create-branch`、`merge-branches`、`initialize` 或 `prepare-baseline`。
+- `branch` 是当前步骤的目标分支。并行步骤必须使用唯一子分支；串行与整合步骤使用 `repository.integrationBranch`。
+- `push` 使用 `none` 或 `after-acceptance-with-approval`。并行步骤只能为 `none`；只有存在远程仓库、位于整合分支的最后一个串行步骤可以在最终验收和再次授权后推送。
+- 同一并行批次的 `files` 不得重叠。无法明确划分文件范围时必须改为串行。
+- 每个并行批次后必须有一个更晚的串行 `kind:"integration"`、`gitAction:"merge-branches"` 步骤，其 `dependsOn` 包含该批全部步骤。
+- `IR_FIELD:session` 必须与元数据一致：串行使用 `➡️`，并行使用 `🔀`，并显示批次、等待步骤和文件范围。
+- `IR_FIELD:git` 必须显示本步 Git 动作、目标分支、验收后提交和推送策略。
 - 开发提示词必须包含完整的 `IR_GUARD`，并用自然语言说明具体实现范围、技术检查和停止条件。
+- 开发提示词必须包含完整的 `IR_SESSION_GUARD`，并说明文件范围、冲突时停止，以及 worktree/共享目录边界；共享目录中的并行 Session 不得切换分支、暂存或提交。
+- 开发提示词必须包含完整的 `IR_GIT_GUARD`；验收前不提交、没有再次授权不推送，并保留用户已有改动。
+- 串行整合步骤必须先确认所有依赖已通过；共享目录直接联调，独立 worktree 合并已确认提交；只处理冲突、联调和回归。
+- 当前不是 Git 仓库时，第一步使用 `gitAction:"initialize"`；工作区为 `dirty`、`unknown` 或 detached 时，第一步使用 `prepare-baseline`；干净但当前不在整合分支时，第一步使用 `create-integration-branch`。
 - 用户验收使用 Markdown 列表，必须有 1–2 项。
 - 无代码模式不得使用 `code` 或 `diff` 作为 evidence。
 - 无代码且有前端时，第一步必须为 `kind:"frontend"`、`evidence:"ui"`。
@@ -127,7 +179,7 @@
 ## 完整示例
 
 ````html
-<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能查看任务列表","language":"zh-CN","project":{"hasFrontend":true}} -->
+<!-- IDIOTS_ROADMAP:BEGIN {"version":1,"action":"new","capability":{"mode":"no-code","description":"完全不看代码"},"goal":"让用户能查看任务列表","language":"zh-CN","project":{"hasFrontend":true},"repository":{"isGitRepo":true,"workingTree":"clean","currentBranch":"main","remoteProvider":"none","remoteName":null,"integrationBranch":"ir/task-list","pushPolicy":"manual-after-final-acceptance"}} -->
 # Idiots Roadmap：查看任务列表
 
 <!-- IR_SECTION:goal -->
@@ -144,13 +196,34 @@
 
 <!-- IR_SECTION:usage -->
 ## 使用方法
-复制当前步骤提示词给开发 AI，按最多两项条目验收，明确回复通过后再继续。
+按批次开启开发 Session；复制当前步骤提示词，按最多两项条目验收，明确回复通过后再继续。
+
+<!-- IR_SECTION:git -->
+## Git 状态
+- 本地 Git：已启用
+- 工作区：clean
+- 当前分支：main
+- GitHub：未连接（不影响本地并行）
+- 整合分支：ir/task-list
+- 提交时机：每个步骤验收通过后
+- 推送时机：未连接远程仓库，本 Roadmap 不推送
+
+<!-- IR_SECTION:sessions -->
+## Session 安排
+- 第 1 批（串行）：子步骤 1
+- 第 2 批（串行）：子步骤 2
 
 <!-- IR_SECTION:steps -->
 ## 开发步骤
 
-<!-- IR_STEP {"id":"step-01","label":"1","status":"pending","kind":"frontend","evidence":"ui","data":"mock"} -->
+<!-- IR_STEP {"id":"step-01","label":"1","status":"pending","kind":"frontend","evidence":"ui","data":"mock","batch":1,"execution":"serial","dependsOn":[],"files":["web/task-list/**"],"gitAction":"create-integration-branch","branch":"ir/task-list","push":"none"} -->
 **🧩 子步骤 1：可点击的任务列表**
+
+<!-- IR_FIELD:session -->
+➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：web/task-list/**
+
+<!-- IR_FIELD:git -->
+🌿 Git｜从 main 的干净基线新建整合分支：ir/task-list｜验收通过后提交｜本步不推送
 
 <!-- IR_FIELD:prompt -->
 📋 第 1 步 — 复制以下提示词发给开发 AI：
@@ -160,6 +233,13 @@
 
 🎯 要求：
 - 交付一个可打开的任务列表页，展示清楚标注的演示任务和状态筛选。
+- 只修改这些文件或目录：web/task-list/**。
+- 若需要改动范围外文件或发现与其他 Session 冲突，立即停止并说明。
+- 开始前确认所有前置步骤已经通过；不要改动其他未完成 Session 的工作。
+- 从当前 main 的干净基线新建并切换到 ir/task-list，再开始本步开发。
+- 保留用户已有改动，不得擅自 stash、覆盖或清理。
+- 开发完成后先停止；收到“1 通过，请继续。”后才提交当前文件范围。
+- 本步骤禁止推送远程。
 - 运行必要的前端检查。
 - 说明打开页面的方法。
 - 完成后停止并等待我的验收。
@@ -168,6 +248,8 @@
 ⚠️ 约束：不要实现保存或权限。
 
 <!-- IR_GUARD:current-step-only,run-checks,stop-for-acceptance -->
+<!-- IR_SESSION_GUARD:file-scope,no-cross-session-edits,stop-on-conflict -->
+<!-- IR_GIT_GUARD:commit-after-acceptance,no-auto-push,preserve-user-changes -->
 
 【🚧 边界条件】
 <!-- IR_FIELD:boundaries -->
@@ -190,8 +272,14 @@
 
 <!-- IR_STEP_END -->
 
-<!-- IR_STEP {"id":"step-02","label":"2","status":"pending","kind":"integration","evidence":"ui","data":"real"} -->
+<!-- IR_STEP {"id":"step-02","label":"2","status":"pending","kind":"integration","evidence":"ui","data":"real","batch":2,"execution":"serial","dependsOn":["step-01"],"files":["web/task-list/**","server/task-read/**"],"gitAction":"stay","branch":"ir/task-list","push":"none"} -->
 **🧩 子步骤 2：接入真实任务数据**
+
+<!-- IR_FIELD:session -->
+➡️ 串行 Session｜第 2 批｜等待：子步骤 1｜文件范围：web/task-list/**、server/task-read/**
+
+<!-- IR_FIELD:git -->
+🌿 Git｜继续使用整合分支：ir/task-list｜验收通过后提交｜本步不推送
 
 <!-- IR_FIELD:prompt -->
 📋 第 1 步 — 复制以下提示词发给开发 AI：
@@ -201,6 +289,12 @@
 
 🎯 要求：
 - 让同一个任务列表页展示真实任务、空状态和失败提示。
+- 只修改这些文件或目录：web/task-list/**、server/task-read/**。
+- 若需要改动范围外文件或发现与其他 Session 冲突，立即停止并说明。
+- 开始前确认子步骤 1 已通过；不要改动其他未完成 Session 的工作。
+- 保留用户已有改动，不得擅自 stash、覆盖或清理。
+- 开发完成后先停止；收到“2 通过，请继续。”后才提交当前文件范围。
+- 本步骤禁止推送远程。
 - 运行接口和前端必要检查。
 - 提供可复现的样例数据。
 - 完成后停止并等待我的验收。
@@ -209,6 +303,8 @@
 ⚠️ 约束：不重新设计已经通过验收的页面。
 
 <!-- IR_GUARD:current-step-only,run-checks,stop-for-acceptance -->
+<!-- IR_SESSION_GUARD:file-scope,no-cross-session-edits,stop-on-conflict -->
+<!-- IR_GIT_GUARD:commit-after-acceptance,no-auto-push,preserve-user-changes -->
 
 【🚧 边界条件】
 <!-- IR_FIELD:boundaries -->

@@ -5,6 +5,7 @@ import { writeAdditionalContext } from "./lib/host.mjs";
 import { readHookInput } from "./lib/io.mjs";
 import { detectLanguageGroups, hasFrontend } from "./lib/languages.mjs";
 import { buildPlanProtocol } from "./lib/protocol.mjs";
+import { detectRepositoryState } from "./lib/repository.mjs";
 
 const input = await readHookInput();
 const permissionMode = input.permission_mode || input.permissionMode || input.hook_input?.permission_mode;
@@ -17,6 +18,7 @@ try {
     languageGroups: detectLanguageGroups(root),
     existingRoadmap: fs.existsSync(path.join(root, "IDIOTS_ROADMAP.md")),
     hasFrontend: hasFrontend(root),
+    repository: detectRepositoryState(root),
   });
   writeAdditionalContext("UserPromptSubmit", context);
 } catch {

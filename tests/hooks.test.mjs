@@ -39,6 +39,8 @@ test("Codex Plan input receives JSON additionalContext and dynamic languages", (
   assert.match(output.hookSpecificOutput.additionalContext, /完全不看代码/);
   assert.match(output.hookSpecificOutput.additionalContext, /JavaScript\/TypeScript\/CSS/);
   assert.match(output.hookSpecificOutput.additionalContext, /hasFrontend=true/);
+  assert.match(output.hookSpecificOutput.additionalContext, /Git 只读检测/);
+  assert.match(output.hookSpecificOutput.additionalContext, /"remoteProvider":"none"/);
 });
 
 test("Claude Plan input receives plain context", () => {

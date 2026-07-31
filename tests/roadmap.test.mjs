@@ -63,7 +63,10 @@ test("requires the reply command to use the visible substep label", () => {
     steps: [makeStep({ label: "4-3b" })],
   });
   assert.deepEqual(validateRoadmap(envelope).errors, []);
-  envelope.markdown = envelope.markdown.replace("4-3b 通过，请继续。", "其他步骤通过");
+  envelope.markdown = envelope.markdown.replace(
+    "💬 第 3 步 — 回复：`4-3b 通过，请继续。`",
+    "💬 第 3 步 — 回复：`其他步骤通过`",
+  );
   const result = validateRoadmap(envelope);
   assert.equal(result.valid, false);
   assert.match(result.errors.join("\n"), /4-3b 通过，请继续/);
@@ -104,6 +107,214 @@ test("rejects mock data without later real UI integration", () => {
   });
   assert.equal(validateRoadmap(envelope).valid, false);
   assert.match(validateRoadmap(envelope).errors.join("\n"), /真实 UI 集成/);
+});
+
+test("validates parallel development sessions with isolated files and a later integration session", () => {
+  const envelope = makeEnvelope({
+    capabilityMode: "code-reader",
+    capabilityDescription: "能看 JavaScript/TypeScript 基础代码",
+    hasFrontend: true,
+    remoteProvider: "github",
+    remoteName: "origin",
+    steps: [
+      makeStep({
+        id: "step-01",
+        batch: 1,
+        kind: "other",
+        files: ["docs/contracts/task-detail.md"],
+      }),
+      makeStep({
+        id: "step-02",
+        label: "2A",
+        batch: 2,
+        execution: "parallel",
+        dependsOn: ["step-01"],
+        files: ["web/task-detail/**"],
+        parallelWith: ["子步骤 2B"],
+        kind: "frontend",
+        evidence: "ui",
+      }),
+      makeStep({
+        id: "step-03",
+        label: "2B",
+        batch: 2,
+        execution: "parallel",
+        dependsOn: ["step-01"],
+        files: ["server/task-detail/**"],
+        parallelWith: ["子步骤 2A"],
+        kind: "backend",
+        evidence: "sample-io",
+      }),
+      makeStep({
+        id: "step-04",
+        label: "3",
+        batch: 3,
+        execution: "serial",
+        dependsOn: ["step-02", "step-03"],
+        files: ["web/task-detail/**", "server/task-detail/**", "tests/task-detail/**"],
+        kind: "integration",
+        gitAction: "merge-branches",
+        branch: "ir/roadmap",
+        push: "after-acceptance-with-approval",
+        evidence: "ui",
+        data: "real",
+      }),
+    ],
+  });
+  assert.deepEqual(validateRoadmap(envelope).errors, []);
+  assert.match(envelope.markdown, /第 2 批（可同时开启多个 Session）：子步骤 2A、子步骤 2B/);
+  assert.match(envelope.markdown, /GitHub：已连接（origin）/);
+  assert.match(envelope.markdown, /明确同意后才推送/);
+});
+
+test("rejects parallel sessions whose file ranges overlap", () => {
+  const envelope = makeEnvelope({
+    steps: [
+      makeStep({
+        id: "step-01",
+        batch: 1,
+        execution: "parallel",
+        files: ["src/features/**"],
+        parallelWith: ["子步骤 2"],
+      }),
+      makeStep({
+        id: "step-02",
+        batch: 1,
+        execution: "parallel",
+        files: ["src/features/tasks/**"],
+        parallelWith: ["子步骤 1"],
+      }),
+      makeStep({
+        id: "step-03",
+        batch: 2,
+        dependsOn: ["step-01", "step-02"],
+        kind: "integration",
+        gitAction: "merge-branches",
+        branch: "ir/roadmap",
+      }),
+    ],
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /文件范围重叠/);
+});
+
+test("rejects a parallel batch without a later integration session", () => {
+  const envelope = makeEnvelope({
+    steps: [
+      makeStep({
+        id: "step-01",
+        batch: 1,
+        execution: "parallel",
+        files: ["web/**"],
+        parallelWith: ["子步骤 2"],
+      }),
+      makeStep({
+        id: "step-02",
+        batch: 1,
+        execution: "parallel",
+        files: ["server/**"],
+        parallelWith: ["子步骤 1"],
+      }),
+    ],
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /串行 integration/);
+});
+
+test("rejects forward dependencies and unsafe file ranges", () => {
+  const envelope = makeEnvelope({
+    steps: [
+      makeStep({
+        id: "step-01",
+        dependsOn: ["step-02"],
+        files: ["../outside/**"],
+      }),
+      makeStep({ id: "step-02" }),
+    ],
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /必须出现在当前步骤之前/);
+  assert.match(result.errors.join("\n"), /文件范围无效/);
+});
+
+test("does not allow push when no remote repository is connected", () => {
+  const envelope = makeEnvelope({
+    steps: [
+      makeStep({
+        kind: "integration",
+        gitAction: "merge-branches",
+        push: "after-acceptance-with-approval",
+      }),
+    ],
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /未连接远程仓库/);
+});
+
+test("requires baseline protection before parallel work in a dirty repository", () => {
+  const envelope = makeEnvelope({
+    workingTree: "dirty",
+    steps: [
+      makeStep({
+        id: "step-01",
+        batch: 1,
+        execution: "parallel",
+        files: ["web/**"],
+        parallelWith: ["子步骤 2"],
+      }),
+      makeStep({
+        id: "step-02",
+        batch: 1,
+        execution: "parallel",
+        files: ["server/**"],
+        parallelWith: ["子步骤 1"],
+      }),
+      makeStep({
+        id: "step-03",
+        batch: 2,
+        dependsOn: ["step-01", "step-02"],
+        kind: "integration",
+        gitAction: "merge-branches",
+      }),
+    ],
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /prepare-baseline/);
+});
+
+test("requires Git initialization in the first step when the project is not a repository", () => {
+  const envelope = makeEnvelope({ isGitRepo: false });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /初始化本地 Git/);
+
+  const initialized = makeEnvelope({
+    isGitRepo: false,
+    steps: [makeStep({ gitAction: "initialize" })],
+  });
+  assert.deepEqual(validateRoadmap(initialized).errors, []);
+});
+
+test("creates the integration branch in the first step when starting from another clean branch", () => {
+  const envelope = makeEnvelope({
+    currentBranch: "main",
+    integrationBranch: "ir/roadmap",
+  });
+  const result = validateRoadmap(envelope);
+  assert.equal(result.valid, false);
+  assert.match(result.errors.join("\n"), /创建并切换到 integrationBranch/);
+
+  const withIntegrationBranch = makeEnvelope({
+    currentBranch: "main",
+    integrationBranch: "ir/roadmap",
+    steps: [makeStep({ gitAction: "create-integration-branch" })],
+  });
+  assert.deepEqual(validateRoadmap(withIntegrationBranch).errors, []);
 });
 
 test("preserves completed steps byte-for-byte during update", () => {

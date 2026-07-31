@@ -1,4 +1,4 @@
-export function buildPlanProtocol({ languageGroups, existingRoadmap, hasFrontend }) {
+export function buildPlanProtocol({ languageGroups, existingRoadmap, hasFrontend, repository }) {
   const languageOptions =
     languageGroups.length === 0
       ? "未检测到可稳定识别的代码语言，不额外添加代码阅读选项。"
@@ -27,5 +27,13 @@ ${languageOptions}${warning}
 
 生成时必须使用已安装的 $idiots-roadmap Skill，并完整读取它的 references/roadmap-protocol.md。最终回答必须包含完整 BEGIN/END 标记块。Roadmap 落盘后停止，不退出 Plan，不开始开发。
 
-仓库检测：hasFrontend=${String(hasFrontend)}。完全不看代码且 hasFrontend=true 时，第一步必须先给可打开、可点击、可反馈的前端结果；后端准备不得成为更早的独立用户步骤。`;
+仓库检测：hasFrontend=${String(hasFrontend)}。完全不看代码且 hasFrontend=true 时，第一步必须先给可打开、可点击、可反馈的前端结果；后端准备不得成为更早的独立用户步骤。
+
+Git 只读检测：${JSON.stringify(repository || {
+    isGitRepo: false,
+    workingTree: "unknown",
+    currentBranch: null,
+    remoteProvider: "none",
+    remoteName: null,
+  })}。把此状态写入 Roadmap；不要为了检测或连接 GitHub 修改仓库，也不要联网。`;
 }
