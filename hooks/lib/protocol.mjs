@@ -29,6 +29,13 @@ ${languageOptions}${warning}
 
 仓库检测：hasFrontend=${String(hasFrontend)}。完全不看代码且 hasFrontend=true 时，第一步必须先给可打开、可点击、可反馈的前端结果；后端准备不得成为更早的独立用户步骤。
 
+计划包含并行批次时，必须根据当前宿主和实际工作目录选择一种 workspaceStrategy，并写入 Roadmap：
+- Codex 已为每个任务提供独立 Worktree：codex-managed-worktree。
+- Claude Code CLI 使用 --worktree、Desktop 自动隔离或当前已在独立 Worktree：claude-managed-worktree。
+- 宿主没有托管隔离，但开发 AI 能从已验收基线安全创建 Git Worktree：manual-worktree。
+- 多个 Session 明确共用同一项目目录且文件范围互不重叠：shared-directory。
+无法确认隔离方式、共同 baseCommit 或文件范围时改为串行，不要猜测。Skill 不会自动创建 Session、分支或 Worktree。shared-directory 的并行 Session 不得切分支、暂存或提交，由唯一整合 Session 统一收口。
+
 Git 只读检测：${JSON.stringify(repository || {
     isGitRepo: false,
     workingTree: "unknown",

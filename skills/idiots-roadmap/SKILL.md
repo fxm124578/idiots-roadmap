@@ -61,20 +61,33 @@ description: 把 Plan 模式中的技术计划拆成用户能逐步驱动 AI 开
   - `serial` 或 `parallel`；
   - 必须先通过的步骤；
   - 当前 Session 唯一允许修改的文件或目录范围。
-- 并行步骤的提示词要求开发 AI：只修改声明范围；发现需要跨范围修改或与其他 Session 冲突时立即停止并报告；宿主支持独立 worktree 时优先使用，共享工作目录时不得切换分支、暂存或提交，由后续整合 Session 统一收口。
-- 整合步骤的提示词必须说明：确认全部前置 Session 已通过；共享目录直接联调现有改动，独立 worktree 则合并各 Session 已确认的提交；只处理冲突、联调和回归，不顺手扩需求。
+- 计划包含并行批次时，先按当前宿主和实际目录选择且只选择一种 `workspaceStrategy`：
+  - Codex 已为各任务提供独立 Worktree：`codex-managed-worktree`。
+  - Claude Code CLI 使用 `--worktree`、Desktop 自动隔离，或已进入独立 Worktree：`claude-managed-worktree`。
+  - 宿主没有托管隔离，但开发 AI 可以从已验收基线安全创建 Git Worktree：`manual-worktree`。
+  - 多个 Session 确定共用同一项目目录，且文件范围完全不重叠：`shared-directory`。
+- 无法确认宿主是否隔离、共同基线或文件范围时，改为串行；不得猜测已经处于 Worktree。
+- 每个并行步骤的提示词必须使用所选 strategy 的专用动作，不得同时给出互相矛盾的“新建分支”和“共享目录不切分支”指令。
+- `codex-managed-worktree`：让用户从已经通过的基线分别新建 Worktree 任务；开发 AI 核对 `baseCommit`。宿主管理的 detached 状态本身不是错误，不要擅自切分支；验收通过后保存可供整合的提交。
+- `claude-managed-worktree`：Claude Code CLI 使用 `claude --worktree <name>`，Desktop 使用新建 Code Session 的自动隔离；开始前确认 Worktree 基于 `baseCommit`。若默认从远程默认分支开始而不包含本地基线，先停止并改用本地 `HEAD` 基线，不能带着旧版本开发。
+- `manual-worktree`：由开发 AI 创建目录和分支，用户不执行 Git 命令。创建、基线核对或环境准备失败时立即停止，不退化为同目录切分支。
+- `shared-directory`：所有并行 Session 留在当前分支，不切分支、不暂存、不提交，只修改声明范围；由唯一整合 Session 检查全部改动后统一提交。
+- 整合步骤必须说明：确认全部前置 Session 已通过；共享目录直接联调现有改动，独立 Worktree 则按已确认提交整合；只处理冲突、联调和回归，不顺手扩需求。
+- 每种 strategy 都要写明：如何开始、共同基线、允许文件、验收后动作、失败时怎么停、最终由谁清理。未提交改动或未确认提交存在时不得自动删除 Worktree 或分支。
 - 分支和 worktree 是开发 AI 的隔离手段，不要求用户执行 Git 命令；本 Skill 不创建 Session、分支或 worktree，也不合并代码。
 
 ## 安排 Git 与 GitHub
 
 - Roadmap 固定显示当前本地 Git、工作区、远程仓库、整合分支、提交时机和推送时机。
+- 计划包含并行批次时，同时显示 `workspaceStrategy` 和 `baseCommit`；`baseCommit` 必须是用户已通过的共同起点，不能只写分支名或“最新版本”。
 - 未初始化 Git 时，把初始化和基线保护折叠进第一个开发步骤；完全不看代码且有前端时，该步骤仍必须交付可见前端结果，不单列技术准备步骤。
 - 工作区为 `dirty` 或 `unknown` 且计划包含并行批次时，在首个并行批次前安排串行 `prepare-baseline`。提示开发 AI 先展示检测结果并请求用户决定如何保护现有改动；不得自行 stash、提交、覆盖或清理。
-- 整个 Roadmap 使用一个稳定整合分支，如 `ir/<goal-slug>`：
+- 整个 Roadmap 使用一个稳定整合分支，如 `ir/<goal-slug>/integration`：
   - 当前不在整合分支时，第一个步骤从干净基线创建它；已有改动时先保护基线，未初始化 Git 时在第一步初始化并建立整合分支；
   - 后续串行步骤继续使用整合分支；
   - 每个并行步骤在开始开发时才从已通过的整合基线新建唯一分支/worktree，如 `ir/<goal-slug>/<step-id>`；
   - 并行步骤全部验收通过后，串行整合步骤把这些分支合回整合分支。
+- 不得把整合分支命名为 `ir/<goal-slug>` 后再创建 `ir/<goal-slug>/<step-id>`；Git 的引用命名会冲突。整合分支和步骤分支必须从一开始就是同级路径。
 - 开发完成时先停止等待验收。只有用户回复当前步骤通过后，开发 AI 才能提交当前步骤声明范围内的文件。
 - GitHub remote 未连接时明确写“未连接（不影响本地并行）”，不自动创建远程仓库、登录或添加 remote。
 - 并行子分支一律不推送。只有存在远程仓库、Roadmap 最后一个串行步骤通过验收且用户再次明确同意后，才允许推送整合分支。
@@ -112,6 +125,7 @@ description: 把 Plan 模式中的技术计划拆成用户能逐步驱动 AI 开
 - 每个子步骤标题后必须用单行标明 `➡️ 串行 Session` 或 `🔀 并行 Session`，并显示批次、前置步骤和允许修改的文件范围。
 - 紧接着用 `🌿 Git` 或 `🔗 Git` 单行说明：本步是否新建/合并分支、目标分支、验收后提交，以及是否允许推送。
 - Roadmap 在开发步骤前提供简短的 `Session 安排`：同一批次中标为并行的子步骤可分别在多个 Session 同时执行，下一批必须等待其依赖全部通过。
+- `Session 安排` 要把宿主动作翻译成用户能照做的一句话，例如 Codex“从这个已通过版本新建三个 Worktree 任务”、Claude Code“分别新建三个隔离 Session”、共享目录“新建三个普通 Session，但都不保存版本，最后交给整合 Session”。
 - Roadmap 在 Session 安排前提供 `Git 状态`，说明是否连接 GitHub；未连接不自动补连。
 - 完全不看代码模式下，每步提示词必须明确生成或更新口语化验收入口；验收清单必须检查用户能否看懂结果，不检查代码和技术测试。
 - 第 1 步的单个代码块包含实现要求、约束、边界条件和 1–2 项验收标准。
