@@ -28,6 +28,7 @@
 - `.claude-plugin/marketplace.json`：Claude Code GitHub marketplace 清单。
 - `tests/`：`node:test` 测试、fixture 与黄金样例。
 - `.github/workflows/`：跨平台 CI。
+- `docs/verification/`：写给不看代码用户的阶段验收说明；每份文件先给“30 秒看懂”和最多两项验收，再把技术证据放到后面。
 - 根目录文档只放用户需要的项目说明、许可和贡献规则。
 
 ## 命名与格式
@@ -39,6 +40,15 @@
 
 ## 实现约束
 
+- 下一版 Roadmap 使用项目内 revision 防止旧 Session 覆盖新计划；更新时必须校验 base revision，同一 revision 只能成功落盘一次。
+- 步骤内部 ID 是稳定身份，不再代表当前顺序；删除步骤后不得复用旧 ID，用户可见编号与内部 ID 分离。
+- 能力切换只约束未完成步骤；已完成步骤保留原文、原能力范围和原验收结果，不因新能力被重写。
+- V1 Roadmap 必须继续可读取；首次成功更新时迁移到新状态模型，迁移失败保留旧文件并进入恢复提示，不做半迁移。
+- Plan 状态无法确认时 hooks 必须静默；任何 `ExitPlanMode` 校验失败都必须拒绝，第二次失败只能停止自动纠错，不能放行退出 Plan。
+- Roadmap 失败状态按 Session、目标、事件和 revision 隔离并设置过期时间，不得让旧失败次数影响新目标。
+- 并行开发必须明确 `workspaceStrategy`：`codex-managed-worktree`、`claude-managed-worktree`、`manual-worktree` 或 `shared-directory`。
+- 独立 worktree 策略必须记录共同基线；共享目录策略下并行 Session 不切分支、不暂存、不提交，统一由整合 Session 提交。
+- 每个并行批次后紧接一个唯一串行整合批次；整合步骤必须等待本批所有步骤，不得用一个模糊整合步骤跨越多个批次。
 - 所有路径必须从已确认的项目根目录解析；拒绝路径穿越和指向项目外的符号链接。
 - 写入 Roadmap 使用同目录临时文件和原子重命名；校验失败不得覆盖旧文件。
 - 新目标覆盖前归档旧 Roadmap；同一目标或能力切换只改写未完成步骤，已完成步骤原样保留。

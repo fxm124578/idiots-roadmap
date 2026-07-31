@@ -5,6 +5,7 @@
 - 最终标记
 - Roadmap 正文
 - 步骤元数据
+- V2 修复契约
 - 完整示例
 
 ## 最终标记
@@ -175,6 +176,103 @@
 - 无代码且有前端时，第一步必须为 `kind:"frontend"`、`evidence:"ui"`。
 - 如果任一步使用 `data:"mock"`，必须有更后的 `kind:"integration"`、`evidence:"ui"`、`data:"real"` 步骤。
 - 演示数据和未实现的高风险能力必须在“要求”和“边界条件”中明确标注。
+
+## V2 修复契约
+
+本节是下一版实现的共同契约。V2 实现完成前，现有 V1 格式继续生效；不得让半完成的 V2 写入覆盖有效的 V1 Roadmap。
+
+### 用户验收入口
+
+- `capability.mode:"no-code"` 时，每份 `docs/verification/*.md` 和其他用户验收文件都必须先提供“30 秒看懂”。
+- 入口只回答四件事：本步改了什么、用户只看哪里、看到什么算通过、哪些技术内容可以不看。
+- 入口不得要求用户查看代码、diff、终端、日志、测试报告、分支或提交记录。
+- 完整技术证据可放在同一文件后半部分，供开发 AI 和维护者追溯。
+
+### Roadmap 身份与 revision
+
+V2 BEGIN metadata 增加：
+
+```json
+{
+  "version": 2,
+  "roadmapId": "rm_<uuid>",
+  "revision": 4,
+  "baseRevision": 3
+}
+```
+
+- `roadmapId` 在新目标创建时生成，此后不变。
+- 新 Roadmap 使用 `revision:1`、`baseRevision:null`。
+- 更新必须以当前 revision 作为 `baseRevision`，并使用 `revision = baseRevision + 1`。
+- hook 落盘前重新读取项目状态；`baseRevision` 与当前 revision 不一致时拒绝覆盖，并提示用户重新生成。
+- 同一 revision 只能成功落盘一次。
+- 项目内 `.idiotsroadmap/state.json` 保存 `roadmapId`、当前 revision、最后成功落盘内容哈希和步骤状态摘要；不保存全局用户能力。
+- Roadmap 文件在开发阶段发生变化时，只允许步骤状态向前推进以及对应进度文字更新；其他变化进入恢复模式，不自动覆盖。
+
+### 稳定步骤 ID
+
+- 步骤 `id` 是稳定身份，不再根据数组位置重新计算。
+- V1 已存在的 `step-01` 等 ID 原样保留并从迁移完成后视为稳定 ID。
+- 新步骤使用当前 Roadmap 从未使用过的新 ID；删除后不得复用。
+- `label` 只负责用户可见编号，可使用 `1`、`1A`、`3B` 等形式调整阅读顺序。
+- 更新时可以插入、删除或重排未完成步骤，但已完成步骤的原文、ID、label、能力范围和验收结果保持不变。
+
+### 能力切换
+
+- 每步增加 `createdUnderCapability`，记录生成该步骤时的能力模式和允许语言。
+- 当前 Roadmap 能力只校验未完成步骤。
+- 已完成步骤继续按 `createdUnderCapability` 解释，不因用户切换到新能力而重新校验或改写。
+- 能力切换只重写 `pending`、`in_progress` 和 `awaiting_acceptance` 步骤。
+- `completed` 不得回退；缺少或改写已完成步骤时拒绝更新。
+
+### V1 迁移
+
+- V1 文件保持可读取。
+- 首次 V2 更新时，从现有文件生成 `roadmapId`、`revision:1` 和步骤状态摘要。
+- V1 步骤 ID、已完成步骤原文和用户可见 label 原样保留。
+- 迁移和新版本落盘使用同一次原子替换；任一校验失败时不创建半完成状态。
+- 迁移失败时保留 V1 文件，显示可执行的恢复提示，不归档为新目标。
+
+### Plan 失败状态
+
+- `permission_mode` 必须明确等于 `plan`；缺失、未知或其他模式时完全静默。
+- `PreToolUse/ExitPlanMode` 的 Roadmap 校验失败始终返回 deny，包括第二次及之后的失败。
+- `Stop` 第一次失败阻止结束并要求修正一次；第二次失败允许本轮结束纠错，但必须明确 Roadmap 未落盘、旧文件未变化，且不得触发退出 Plan。
+- 失败计数使用 `sessionId + goalHash + event + baseRevision` 作为身份，默认 30 分钟过期。
+- 缺少稳定 Session ID 时不启用自动纠错计数，只返回安全提示。
+
+### Workspace strategy
+
+V2 repository metadata 增加：
+
+```json
+{
+  "workspaceStrategy": "codex-managed-worktree",
+  "baseCommit": "<accepted commit>",
+  "integrationBranch": "ir/example"
+}
+```
+
+`workspaceStrategy` 只能是：
+
+- `codex-managed-worktree`：用户在 Codex 创建新 Worktree 任务；宿主负责目录隔离。开发 AI 先确认当前任务基于 `baseCommit`，正常 detached 状态不当作 dirty 错误。
+- `claude-managed-worktree`：通过 Claude Code CLI、Desktop 或隔离 Session 创建 Worktree；开始前确认 base ref 对应 `baseCommit`。
+- `manual-worktree`：开发 AI 创建独立 Worktree 和分支，用户不执行 Git 命令；创建失败时停止，不退化为共享目录切分支。
+- `shared-directory`：多个 Session 共用项目目录；并行阶段不切分支、不暂存、不提交，只修改互不重叠文件，由整合 Session 统一检查和提交。
+
+共同规则：
+
+- 并行批次开始前必须有已经通过用户验收的 `baseCommit`。
+- 每个并行步骤记录 strategy、允许文件范围和共同基线。
+- 独立 Worktree 分支只有用户验收通过后才能提交；共享目录并行步骤不提交。
+- 并行批次后的下一批必须是唯一串行整合批次，并依赖该批全部步骤。
+- 整合完成后按 strategy 清理临时 Worktree 和分支；清理不得使用破坏用户数据的命令。
+- V1 不实现 OpenCode；未来使用独立适配器，不复用当前 hooks 假装兼容。
+
+### 本轮实现边界
+
+- 本契约只覆盖 Plan 安全、Roadmap 更新状态和多 Session 工作方式。
+- 路径安全、安装发布和 OpenCode 实现保留在审计后续计划中，不得混入本轮并行开发。
 
 ## 完整示例
 
