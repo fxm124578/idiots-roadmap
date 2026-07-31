@@ -25,6 +25,13 @@ const ALLOWED_GIT_ACTION = new Set([
 const ALLOWED_PUSH = new Set(["none", "after-acceptance-with-approval"]);
 const ALLOWED_REMOTE_PROVIDER = new Set(["github", "other", "none"]);
 const ALLOWED_WORKING_TREE = new Set(["clean", "dirty", "unknown"]);
+const ALLOWED_TRANSITIONS = new Set(["absent", "new", "update", "new-goal", "recovery"]);
+const STATUS_ORDER = new Map([
+  ["pending", 0],
+  ["in_progress", 1],
+  ["awaiting_acceptance", 2],
+  ["completed", 3],
+]);
 const REQUIRED_GUARD = "<!-- IR_GUARD:current-step-only,run-checks,stop-for-acceptance -->";
 const REQUIRED_SESSION_GUARD = "<!-- IR_SESSION_GUARD:file-scope,no-cross-session-edits,stop-on-conflict -->";
 const REQUIRED_GIT_GUARD = "<!-- IR_GIT_GUARD:commit-after-acceptance,no-auto-push,preserve-user-changes -->";
@@ -126,6 +133,29 @@ export function parseSteps(markdown) {
       raw: markdown.slice(start.index, end.index + end[0].length),
     };
   });
+}
+
+function capabilitySnapshot(capability) {
+  if (!capability || typeof capability !== "object") return null;
+  return JSON.parse(JSON.stringify(capability));
+}
+
+function canonicalize(value) {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonicalize(value[key])]),
+  );
+}
+
+function capabilitiesMatch(left, right) {
+  return JSON.stringify(canonicalize(left)) === JSON.stringify(canonicalize(right));
+}
+
+function validStableId(value) {
+  return typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,79}$/u.test(value);
 }
 
 function fieldContent(step, field) {
@@ -252,9 +282,36 @@ function listItems(content, checkbox = false) {
 export function validateRoadmap(envelope) {
   const errors = [];
   const { metadata, markdown } = envelope;
+  const version = metadata?.version;
 
-  if (metadata?.version !== 1) errors.push("version 必须为 1。");
+  if (![1, 2].includes(version)) errors.push("version 必须为 1 或 2。");
   if (!["new", "update"].includes(metadata?.action)) errors.push("action 必须为 new 或 update。");
+  if (version === 2) {
+    if (
+      typeof metadata?.roadmapId !== "string" ||
+      !/^rm_[A-Za-z0-9_-]{8,100}$/u.test(metadata.roadmapId)
+    ) {
+      errors.push("V2 roadmapId 必须是以 rm_ 开头的稳定标识。");
+    }
+    if (!Number.isInteger(metadata?.revision) || metadata.revision < 1) {
+      errors.push("V2 revision 必须是正整数。");
+    }
+    if (metadata?.action === "new") {
+      if (metadata.revision !== 1 || metadata.baseRevision !== null) {
+        errors.push("V2 新 Roadmap 必须使用 revision:1 和 baseRevision:null。");
+      }
+    } else if (metadata?.baseRevision === null) {
+      if (metadata.revision !== 1) {
+        errors.push("V1 首次迁移必须使用 revision:1 和 baseRevision:null。");
+      }
+    } else if (
+      !Number.isInteger(metadata?.baseRevision) ||
+      metadata.baseRevision < 1 ||
+      metadata.revision !== metadata.baseRevision + 1
+    ) {
+      errors.push("V2 更新必须使用当前 baseRevision，且 revision = baseRevision + 1。");
+    }
+  }
   if (!metadata?.goal || typeof metadata.goal !== "string") errors.push("goal 必须是非空字符串。");
   if (!metadata?.capability?.description) errors.push("缺少 capability.description。");
   if (!["no-code", "code-reader", "custom"].includes(metadata?.capability?.mode)) {
@@ -312,17 +369,47 @@ export function validateRoadmap(envelope) {
   const stepIndexes = new Map();
   const batches = new Map();
   const parallelBranches = new Set();
+  const displayOrders = new Set();
   steps.forEach((step, index) => {
     const expectedId = `step-${String(index + 1).padStart(2, "0")}`;
     const meta = step.metadata;
-    if (meta.id !== expectedId) errors.push(`第 ${index + 1} 步 ID 应为 ${expectedId}。`);
+    if (version === 1 && meta.id !== expectedId) {
+      errors.push(`第 ${index + 1} 步 ID 应为 ${expectedId}。`);
+    }
+    if (version === 2 && !validStableId(meta.id)) {
+      errors.push(`第 ${index + 1} 步缺少安全、稳定的内部 ID。`);
+    }
     if (ids.has(meta.id)) errors.push(`步骤 ID 重复：${meta.id}。`);
     ids.add(meta.id);
     stepIndexes.set(meta.id, index);
     if (!meta.label || typeof meta.label !== "string") errors.push(`${meta.id || expectedId} 缺少用户可见 label。`);
     if (labels.has(meta.label)) errors.push(`子步骤 label 重复：${meta.label}。`);
     labels.add(meta.label);
+    if (version === 2 && meta.displayOrder !== undefined) {
+      if (
+        (!Number.isInteger(meta.displayOrder) || meta.displayOrder < 1) &&
+        (typeof meta.displayOrder !== "string" || !meta.displayOrder.trim())
+      ) {
+        errors.push(`${meta.id || expectedId} 的 displayOrder 必须是正整数或非空字符串。`);
+      } else if (displayOrders.has(String(meta.displayOrder))) {
+        errors.push(`步骤 displayOrder 重复：${meta.displayOrder}。`);
+      } else {
+        displayOrders.add(String(meta.displayOrder));
+      }
+    }
     if (!ALLOWED_STATUS.has(meta.status)) errors.push(`${meta.id || expectedId} 的 status 无效。`);
+    if (version === 2 && meta.status !== "completed") {
+      if (!capabilitiesMatch(meta.createdUnderCapability, metadata?.capability)) {
+        errors.push(`${meta.id || expectedId} 必须按当前能力范围重新生成 createdUnderCapability。`);
+      }
+    } else if (
+      version === 2 &&
+      meta.status === "completed" &&
+      meta.createdUnderCapability !== undefined &&
+      !meta.createdUnderCapability?.mode
+    ) {
+      errors.push(`${meta.id || expectedId} 的 createdUnderCapability 无效。`);
+    }
     if (!ALLOWED_KIND.has(meta.kind)) errors.push(`${meta.id || expectedId} 的 kind 无效。`);
     if (!ALLOWED_EVIDENCE.has(meta.evidence)) errors.push(`${meta.id || expectedId} 的 evidence 无效。`);
     if (!ALLOWED_DATA.has(meta.data)) errors.push(`${meta.id || expectedId} 的 data 无效。`);
@@ -429,7 +516,9 @@ export function validateRoadmap(envelope) {
     if (meta.label && !reply.includes(`${meta.label} 通过，请继续。`)) {
       errors.push(`${meta.id || expectedId} 的第 3 步回复必须包含“${meta.label} 通过，请继续。”。`);
     }
-    if (metadata?.capability?.mode === "no-code" && ["code", "diff"].includes(meta.evidence)) {
+    const effectiveCapability =
+      meta.status === "completed" ? meta.createdUnderCapability : metadata?.capability;
+    if (effectiveCapability?.mode === "no-code" && ["code", "diff"].includes(meta.evidence)) {
       errors.push(`${meta.id || expectedId} 在完全不看代码模式下不能使用 ${meta.evidence} 验收。`);
     }
   });
@@ -538,9 +627,18 @@ export function validateRoadmap(envelope) {
   }
 
   if (metadata?.capability?.mode === "no-code" && metadata?.project?.hasFrontend && steps.length > 0) {
-    const first = steps[0].metadata;
-    if (first.kind !== "frontend" || first.evidence !== "ui") {
-      errors.push("完全不看代码且有前端时，第一步必须是 frontend + ui。");
+    const first =
+      metadata.action === "update"
+        ? steps.find((step) => step.metadata.status !== "completed")?.metadata
+        : steps[0].metadata;
+    const allowedKinds =
+      metadata.action === "update" ? new Set(["frontend", "integration"]) : new Set(["frontend"]);
+    if (first && (!allowedKinds.has(first.kind) || first.evidence !== "ui")) {
+      errors.push(
+        metadata.action === "update"
+          ? "完全不看代码且有前端时，第一个未完成步骤必须产出可见 UI。"
+          : "完全不看代码且有前端时，第一步必须是 frontend + ui。",
+      );
     }
   }
 
@@ -563,8 +661,12 @@ export function mergeCompletedSteps(oldMarkdown, newMarkdown) {
   const incoming = parseSteps(newMarkdown);
   const incomingById = new Map(incoming.map((step) => [step.metadata.id, step]));
   for (const step of completed) {
-    if (!incomingById.has(step.metadata.id)) {
+    const incomingStep = incomingById.get(step.metadata.id);
+    if (!incomingStep) {
       throw new Error(`更新缺少已完成步骤 ${step.metadata.id}；请原样保留所有已完成步骤。`);
+    }
+    if (incomingStep.metadata.status !== "completed") {
+      throw new Error(`已完成步骤 ${step.metadata.id} 不能回退为 ${incomingStep.metadata.status || "未知状态"}。`);
     }
   }
 
@@ -601,7 +703,14 @@ export function resolveSafePaths(projectRoot) {
   const control = path.join(root, ".idiotsroadmap");
   const archive = path.join(control, "archive");
   ensureSafeDirectory(root, archive);
-  return { root, target, archive };
+  const state = path.join(control, "state.json");
+  const lock = path.join(control, "roadmap.lock");
+  for (const candidate of [state, lock]) {
+    if (fs.existsSync(candidate) && fs.lstatSync(candidate).isSymbolicLink()) {
+      throw new Error(`${path.basename(candidate)} 是符号链接，已拒绝使用。`);
+    }
+  }
+  return { root, target, archive, state, lock };
 }
 
 function slugGoal(goal) {
@@ -664,10 +773,14 @@ export function readExisting(target) {
 }
 
 export function extractStoredGoal(markdown) {
+  return extractStoredMetadata(markdown)?.goal || null;
+}
+
+export function extractStoredMetadata(markdown) {
   const match = markdown?.match(/<!--\s*IR_STORED_META\s+(\{[^\r\n]*\})\s*-->/);
   if (!match) return null;
   try {
-    return JSON.parse(match[1]).goal || null;
+    return JSON.parse(match[1]);
   } catch {
     return null;
   }
@@ -675,7 +788,10 @@ export function extractStoredGoal(markdown) {
 
 export function withStoredMetadata(markdown, metadata) {
   const marker = `<!-- IR_STORED_META ${JSON.stringify({
-    version: 1,
+    version: metadata.version,
+    roadmapId: metadata.roadmapId,
+    revision: metadata.revision,
+    baseRevision: metadata.baseRevision,
     goal: metadata.goal,
     capability: metadata.capability,
     language: metadata.language,
@@ -685,36 +801,285 @@ export function withStoredMetadata(markdown, metadata) {
   return `${marker}\n${markdown.replace(/^<!--\s*IR_STORED_META[^\n]*-->\s*/u, "")}`;
 }
 
+export function classifyRoadmapTransition({ oldMarkdown = null, incomingMetadata = null } = {}) {
+  if (!oldMarkdown) {
+    if (!incomingMetadata) return "absent";
+    return incomingMetadata.action === "new" ? "new" : "recovery";
+  }
+  const current = extractStoredMetadata(oldMarkdown);
+  if (!current || !incomingMetadata) return "recovery";
+  if (incomingMetadata.action === "update") {
+    const sameGoal = current.goal === incomingMetadata.goal;
+    const sameIdentity =
+      current.version !== 2 ||
+      (incomingMetadata.version === 2 && current.roadmapId === incomingMetadata.roadmapId);
+    return sameGoal && sameIdentity ? "update" : "recovery";
+  }
+  if (incomingMetadata.action === "new") {
+    const sameGoal = current.goal === incomingMetadata.goal;
+    const sameIdentity =
+      current.version === 2 &&
+      incomingMetadata.version === 2 &&
+      current.roadmapId === incomingMetadata.roadmapId;
+    return !sameGoal && !sameIdentity ? "new-goal" : "recovery";
+  }
+  return "recovery";
+}
+
+function contentHash(content) {
+  return crypto.createHash("sha256").update(content, "utf8").digest("hex");
+}
+
+function normalizeMutableRoadmap(markdown) {
+  return markdown
+    .replace(
+      /(<!--\s*IR_SECTION:progress\s*-->)[\s\S]*?(?=<!--\s*IR_SECTION:)/u,
+      "$1\n<progress-can-change>\n\n",
+    )
+    .replace(/("status"\s*:\s*")[^"]+(")/gu, "$1<status-can-change>$2");
+}
+
+function roadmapStepSummary(markdown, fallbackCapability, previousState = null) {
+  const previousById = new Map((previousState?.steps || []).map((step) => [step.id, step]));
+  return parseSteps(markdown).map((step, displayIndex) => ({
+    id: step.metadata.id,
+    label: step.metadata.label,
+    displayOrder: step.metadata.displayOrder ?? displayIndex + 1,
+    status: step.metadata.status,
+    createdUnderCapability:
+      capabilitySnapshot(step.metadata.createdUnderCapability) ||
+      capabilitySnapshot(previousById.get(step.metadata.id)?.createdUnderCapability) ||
+      capabilitySnapshot(fallbackCapability),
+  }));
+}
+
+function buildRoadmapState(stored, metadata, previousState = null, fallbackCapability = null) {
+  const steps = roadmapStepSummary(
+    stored,
+    fallbackCapability || metadata.capability,
+    previousState,
+  );
+  const usedStepIds = new Set(previousState?.usedStepIds || []);
+  for (const step of steps) usedStepIds.add(step.id);
+  return {
+    version: 2,
+    roadmapId: metadata.roadmapId,
+    revision: metadata.revision,
+    contentHash: contentHash(stored),
+    structuralHash: contentHash(normalizeMutableRoadmap(stored)),
+    usedStepIds: [...usedStepIds].sort(),
+    steps,
+  };
+}
+
+function readRoadmapState(statePath) {
+  const raw = readExisting(statePath);
+  if (raw === null) return null;
+  try {
+    const state = JSON.parse(raw);
+    if (
+      state?.version !== 2 ||
+      typeof state.roadmapId !== "string" ||
+      !Number.isInteger(state.revision) ||
+      !Array.isArray(state.usedStepIds) ||
+      !Array.isArray(state.steps)
+    ) {
+      throw new Error("字段不完整");
+    }
+    return state;
+  } catch (error) {
+    throw new Error(`Roadmap 状态文件无法读取，已进入 recovery：${error.message}`);
+  }
+}
+
+function verifyCurrentAgainstState(oldMarkdown, state) {
+  if (contentHash(oldMarkdown) === state.contentHash) return;
+  if (contentHash(normalizeMutableRoadmap(oldMarkdown)) !== state.structuralHash) {
+    throw new Error("现有 Roadmap 除进度或状态外发生了变化，已进入 recovery，未覆盖文件。");
+  }
+  const currentSteps = roadmapStepSummary(oldMarkdown, null);
+  if (currentSteps.length !== state.steps.length) {
+    throw new Error("现有 Roadmap 的步骤结构发生了变化，已进入 recovery，未覆盖文件。");
+  }
+  const stateById = new Map(state.steps.map((step) => [step.id, step]));
+  for (const step of currentSteps) {
+    const previous = stateById.get(step.id);
+    if (!previous || STATUS_ORDER.get(step.status) < STATUS_ORDER.get(previous.status)) {
+      throw new Error(`步骤 ${step.id} 状态发生回退，已进入 recovery，未覆盖文件。`);
+    }
+  }
+}
+
+function validateRevisionTransition({ current, incoming, transition, state }) {
+  if (current?.version === 2 && incoming.version !== 2) {
+    throw new Error("V2 Roadmap 不能被 V1 内容覆盖。");
+  }
+  if (transition === "new") return;
+  if (transition === "new-goal") return;
+  if (transition !== "update") {
+    throw new Error("Roadmap 状态无法确认，已进入 recovery；请重新读取当前计划后再生成。");
+  }
+  if (current.version === 2) {
+    if (!state) {
+      throw new Error("V2 Roadmap 缺少项目状态，已进入 recovery；旧文件保持不变。");
+    }
+    if (state.roadmapId !== current.roadmapId || state.revision !== current.revision) {
+      throw new Error("Roadmap 文件与项目状态版本不一致，已进入 recovery；旧文件保持不变。");
+    }
+    if (incoming.baseRevision !== current.revision || incoming.revision !== current.revision + 1) {
+      throw new Error(
+        `Roadmap 已更新到 revision ${current.revision}；当前 Session 基于 revision ${incoming.baseRevision}，已拒绝覆盖。`,
+      );
+    }
+  } else if (incoming.version === 2) {
+    if (incoming.baseRevision !== null || incoming.revision !== 1) {
+      throw new Error("V1 首次更新必须迁移为 revision 1，并使用 baseRevision:null。");
+    }
+  }
+}
+
+function validateStableStepHistory(oldMarkdown, incomingMarkdown, state) {
+  const current = parseSteps(oldMarkdown);
+  const incoming = parseSteps(incomingMarkdown);
+  const currentById = new Map(current.map((step) => [step.metadata.id, step]));
+  const used = new Set(state?.usedStepIds || currentById.keys());
+  for (const step of incoming) {
+    if (!currentById.has(step.metadata.id) && used.has(step.metadata.id)) {
+      throw new Error(`步骤 ID ${step.metadata.id} 已经使用过，删除后不能复用。`);
+    }
+    const previous = currentById.get(step.metadata.id);
+    if (
+      previous &&
+      STATUS_ORDER.has(previous.metadata.status) &&
+      STATUS_ORDER.has(step.metadata.status) &&
+      STATUS_ORDER.get(step.metadata.status) < STATUS_ORDER.get(previous.metadata.status)
+    ) {
+      throw new Error(`步骤 ${step.metadata.id} 不能从 ${previous.metadata.status} 回退为 ${step.metadata.status}。`);
+    }
+  }
+}
+
+function withRoadmapLock(lockPath, operation) {
+  let descriptor;
+  try {
+    descriptor = fs.openSync(lockPath, "wx", 0o600);
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      throw new Error("另一个 Session 正在更新 Roadmap，请重新读取最新计划后再试。");
+    }
+    throw error;
+  }
+  try {
+    return operation();
+  } finally {
+    fs.closeSync(descriptor);
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      // A missing lock after close does not affect the persisted Roadmap.
+    }
+  }
+}
+
+function writeV2Pair(paths, stored, state) {
+  const oldRoadmap = readExisting(paths.target);
+  const oldState = readExisting(paths.state);
+  atomicWrite(paths.target, stored);
+  try {
+    atomicWrite(paths.state, `${JSON.stringify(state, null, 2)}\n`);
+  } catch (error) {
+    if (oldRoadmap === null) fs.unlinkSync(paths.target);
+    else atomicWrite(paths.target, oldRoadmap);
+    if (oldState === null) {
+      try {
+        fs.unlinkSync(paths.state);
+      } catch {
+        // State was never created or was already cleaned up.
+      }
+    } else {
+      atomicWrite(paths.state, oldState);
+    }
+    throw error;
+  }
+}
+
 export function persistRoadmap({ projectRoot, envelope, now = new Date() }) {
   const incomingValidation = validateRoadmap(envelope);
   if (!incomingValidation.valid) {
     throw new Error(incomingValidation.errors.join("\n"));
   }
   const paths = resolveSafePaths(projectRoot);
-  const oldMarkdown = readExisting(paths.target);
-  let markdown = envelope.markdown;
-
-  if (oldMarkdown && envelope.metadata.action === "update") {
-    const oldGoal = extractStoredGoal(oldMarkdown);
-    if (oldGoal && oldGoal !== envelope.metadata.goal) {
-      throw new Error("update 的 goal 与现有 Roadmap 不一致；新目标必须使用 action:new。");
+  return withRoadmapLock(paths.lock, () => {
+    const oldMarkdown = readExisting(paths.target);
+    const legacyStored =
+      envelope.metadata.version === 1
+        ? withStoredMetadata(envelope.markdown, envelope.metadata)
+        : null;
+    if (oldMarkdown && legacyStored === oldMarkdown) {
+      return { target: paths.target, archive: null, unchanged: true, transition: "update" };
     }
-    markdown = mergeCompletedSteps(oldMarkdown, markdown);
-    const mergedValidation = validateRoadmap({ ...envelope, markdown });
-    if (!mergedValidation.valid) {
-      throw new Error(`保留已完成步骤后 Roadmap 无效：\n${mergedValidation.errors.join("\n")}`);
+    const transition = classifyRoadmapTransition({
+      oldMarkdown,
+      incomingMetadata: envelope.metadata,
+    });
+    if (!ALLOWED_TRANSITIONS.has(transition) || transition === "recovery" || transition === "absent") {
+      throw new Error("Roadmap 状态或 goal 无法确认，已进入 recovery；请重新读取当前计划后再生成。");
     }
-  }
 
-  const stored = withStoredMetadata(markdown, envelope.metadata);
-  if (oldMarkdown === stored) return { target: paths.target, archive: null, unchanged: true };
+    const currentMetadata = extractStoredMetadata(oldMarkdown);
+    let previousState = null;
+    if (currentMetadata?.version === 2) {
+      previousState = readRoadmapState(paths.state);
+      if (previousState) verifyCurrentAgainstState(oldMarkdown, previousState);
+    }
+    validateRevisionTransition({
+      current: currentMetadata,
+      incoming: envelope.metadata,
+      transition,
+      state: previousState,
+    });
 
-  let archivePath = null;
-  if (oldMarkdown && envelope.metadata.action === "new") {
-    archivePath = nextArchivePath(paths.archive, extractStoredGoal(oldMarkdown) || envelope.metadata.goal, now);
-    fs.copyFileSync(paths.target, archivePath, fs.constants.COPYFILE_EXCL);
-  }
+    let markdown = envelope.markdown;
+    if (transition === "update") {
+      validateStableStepHistory(oldMarkdown, markdown, previousState);
+      markdown = mergeCompletedSteps(oldMarkdown, markdown);
+      const mergedValidation = validateRoadmap({ ...envelope, markdown });
+      if (!mergedValidation.valid) {
+        throw new Error(`保留已完成步骤后 Roadmap 无效：\n${mergedValidation.errors.join("\n")}`);
+      }
+    }
 
-  atomicWrite(paths.target, stored);
-  return { target: paths.target, archive: archivePath, unchanged: false };
+    const stored = withStoredMetadata(markdown, envelope.metadata);
+    if (oldMarkdown === stored) return { target: paths.target, archive: null, unchanged: true, transition };
+
+    let archivePath = null;
+    if (transition === "new-goal") {
+      archivePath = nextArchivePath(
+        paths.archive,
+        extractStoredGoal(oldMarkdown) || envelope.metadata.goal,
+        now,
+      );
+      fs.copyFileSync(paths.target, archivePath, fs.constants.COPYFILE_EXCL);
+    }
+
+    if (envelope.metadata.version === 2) {
+      const state = buildRoadmapState(
+        stored,
+        envelope.metadata,
+        transition === "update" ? previousState : null,
+        transition === "update" ? currentMetadata?.capability : envelope.metadata.capability,
+      );
+      writeV2Pair(paths, stored, state);
+    } else {
+      atomicWrite(paths.target, stored);
+      if (transition === "new-goal" && fs.existsSync(paths.state)) fs.unlinkSync(paths.state);
+    }
+    return {
+      target: paths.target,
+      archive: archivePath,
+      unchanged: false,
+      transition,
+      revision: envelope.metadata.version === 2 ? envelope.metadata.revision : null,
+    };
+  });
 }
