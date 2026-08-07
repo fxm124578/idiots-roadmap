@@ -100,7 +100,7 @@
 - 用户可体验工作只能在用户验收通过后提交；纯技术工作可在独立复核一致后建立技术检查点。并行子分支默认不推送，整个 Roadmap 最终验收通过且用户明确授权后才能推送整合分支。
 - 未检测到 GitHub remote 时按 `repository.githubMode` 引导：`local-only` 不连接，`create-private` 或 `connect-existing` 在 Start 中按用户已选方案处理；不得自动登录、创建公开仓库或推送。
 - 工作区存在未提交改动或状态未知时，开始并行前必须安排串行基线保护；不得擅自 stash、提交、覆盖或清理用户已有改动。
-- Skill 和 hooks 不自动创建 Session、切换分支、创建 worktree、合并代码或进入未批准的下一任务。Start Skill 可在用户打开的新 Session 中领取并执行已批准任务；Finish Skill 只能收尾并提出下一批。
+- Skill 和 hooks 不自动创建 Session，也不得进入未批准的下一任务。Start 可按已批准 Roadmap 切换分支、创建 Worktree 和合并依赖分支；Finish 可在验收通过后创建本地提交。两者都不得自动 push。
 - hooks 缺少 Node.js 或遇到不支持的输入时应安全退出，不影响宿主正常工作。
 - 密钥、token、用户私有路径和运行时缓存不得提交。
 
