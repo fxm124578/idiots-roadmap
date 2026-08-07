@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "idiots-roadmap",
-  "description": "把技术计划拆成非程序员可以逐步驱动、反馈和验收的 Roadmap。",
+  "description": "用四个配套 Skill 管理计划、批准、开发接力、收尾和项目对齐。",
   "owner": {
     "name": "Idiots Roadmap Contributors",
     "url": "https://github.com/idiots-roadmap"
@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "idiots-roadmap",
-      "description": "Plan 模式的用户验收型开发 Roadmap。",
+      "description": "Plan 总规划、用户批准门、新 Session 接力、收尾和项目对齐。",
       "source": "./",
       "category": "productivity"
     }

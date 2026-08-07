@@ -1,15 +1,27 @@
 {
   "name": "idiots-roadmap",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Plan-mode roadmap skill for Codex and Claude Code.",
+  "description": "A hook-optional four-Skill project relay with human-approved batches and safe cross-session handoff.",
   "type": "module",
+  "files": [
+    ".agents/plugins/marketplace.json",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    "hooks/",
+    "skills/",
+    "scripts/roadmap-state.mjs",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "test": "node --test",
-    "validate": "node scripts/validate-package.mjs"
+    "validate": "node scripts/validate-package.mjs",
+    "sync:portable": "node scripts/sync-portable-runtime.mjs",
+    "roadmap:validate": "node scripts/roadmap-state.mjs validate"
   },
   "license": "MIT"
 }

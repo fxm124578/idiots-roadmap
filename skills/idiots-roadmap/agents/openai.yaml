@@ -1,4 +1,4 @@
 interface:
   display_name: "Idiots Roadmap"
-  short_description: "把技术计划拆成非程序员可独立驱动、反馈和验收的清晰步骤"
-  default_prompt: "Use $idiots-roadmap to turn this Plan-mode proposal into a user-verifiable roadmap."
+  short_description: "在 Plan 模式建立等待用户批准的项目主轴和下一批结果"
+  default_prompt: "Use $idiots-roadmap in Plan mode to build a module-aware Roadmap and propose the first user-approved batch."

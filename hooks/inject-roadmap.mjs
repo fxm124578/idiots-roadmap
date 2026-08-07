@@ -4,6 +4,7 @@ import path from "node:path";
 import { writeAdditionalContext } from "./lib/host.mjs";
 import { readHookInput } from "./lib/io.mjs";
 import { detectLanguageGroups, hasFrontend } from "./lib/languages.mjs";
+import { analyzeExistingProject } from "./lib/project-analysis.mjs";
 import { buildPlanProtocol } from "./lib/protocol.mjs";
 import { detectRepositoryState } from "./lib/repository.mjs";
 
@@ -19,6 +20,7 @@ try {
     existingRoadmap: fs.existsSync(path.join(root, "IDIOTS_ROADMAP.md")),
     hasFrontend: hasFrontend(root),
     repository: detectRepositoryState(root),
+    projectAnalysis: analyzeExistingProject(root),
   });
   writeAdditionalContext("UserPromptSubmit", context);
 } catch {

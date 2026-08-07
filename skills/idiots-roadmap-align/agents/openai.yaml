@@ -1,0 +1,4 @@
+interface:
+  display_name: "Idiots Roadmap Align"
+  short_description: "Reconcile the live project with its approved Roadmap"
+  default_prompt: "Use $idiots-roadmap-align to compare this project with its Roadmap and resolve meaningful drift."

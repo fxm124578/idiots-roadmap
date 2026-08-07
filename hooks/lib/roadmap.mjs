@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { persistProjectState, validateProjectState } from "./project-state.mjs";
 
 const BEGIN = /<!--\s*IDIOTS_ROADMAP:BEGIN\s+(\{[^\r\n]*\})\s*-->/;
 const END = /<!--\s*IDIOTS_ROADMAP:END\s*-->/;
 const OPTOUT = /<!--\s*IDIOTS_ROADMAP:OPTOUT\s*-->/;
+const STATE_BLOCK = /<!--\s*IR_STATE:BEGIN\s*\r?\n([\s\S]*?)\r?\nIR_STATE:END\s*-->/;
 const STEP_START = /<!--\s*IR_STEP\s+(\{[^\r\n]*\})\s*-->/g;
 const STEP_END = /<!--\s*IR_STEP_END\s*-->/g;
 const REQUIRED_SECTIONS = ["goal", "capability", "progress", "usage", "git", "sessions", "steps"];
@@ -97,10 +99,23 @@ export function parseEnvelope(text) {
     throw new Error("BEGIN 标记中的 JSON 无法解析。");
   }
 
+  const markdown = remainder.slice(0, end.index).trim() + "\n";
+  let projectState;
+  if (metadata.version === 3) {
+    const stateBlock = STATE_BLOCK.exec(markdown);
+    if (!stateBlock) throw new Error("V3 Roadmap 缺少 IR_STATE 状态块。");
+    try {
+      projectState = JSON.parse(stateBlock[1]);
+    } catch {
+      throw new Error("IR_STATE 中的 JSON 无法解析。");
+    }
+  }
+
   return {
     type: "roadmap",
     metadata,
-    markdown: remainder.slice(0, end.index).trim() + "\n",
+    markdown,
+    ...(projectState === undefined ? {} : { projectState }),
   };
 }
 
@@ -286,6 +301,21 @@ function listItems(content, checkbox = false) {
 }
 
 export function validateRoadmap(envelope) {
+  if (envelope?.metadata?.version === 3) {
+    const errors = [];
+    const metadata = envelope.metadata;
+    if (!['new', 'update'].includes(metadata.action)) errors.push("V3 action 必须为 new 或 update。");
+    if (!validStableId(metadata.roadmapId) || !String(metadata.roadmapId).startsWith("rm_")) {
+      errors.push("V3 roadmapId 必须是稳定的 rm_ 标识。");
+    }
+    if (!Number.isInteger(metadata.revision) || metadata.revision < 1) errors.push("V3 revision 必须是正整数。");
+    if (metadata.baseRevision !== null && (!Number.isInteger(metadata.baseRevision) || metadata.baseRevision < 1)) {
+      errors.push("V3 baseRevision 必须为 null 或正整数。");
+    }
+    const stateValidation = validateProjectState(envelope.projectState, metadata);
+    errors.push(...stateValidation.errors);
+    return { valid: errors.length === 0, errors, projectState: envelope.projectState };
+  }
   const errors = [];
   const { metadata, markdown } = envelope;
   const version = metadata?.version;
@@ -1061,6 +1091,14 @@ export function persistRoadmap({ projectRoot, envelope, now = new Date() }) {
   const incomingValidation = validateRoadmap(envelope);
   if (!incomingValidation.valid) {
     throw new Error(incomingValidation.errors.join("\n"));
+  }
+  if (envelope.metadata.version === 3) {
+    return persistProjectState({
+      projectRoot,
+      metadata: envelope.metadata,
+      state: envelope.projectState,
+      now,
+    });
   }
   const paths = resolveSafePaths(projectRoot);
   return withRoadmapLock(paths.lock, () => {

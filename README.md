@@ -1,363 +1,292 @@
 # 🗺️ Idiots Roadmap
 
-> **AI 给你的计划看起来很专业，但你真的知道下一步该让它做什么吗？**
+> 新开一个空白 AI 对话，它能不能自己找到项目进度、接上正确任务，还不替你决定产品方向？
 
 <div align="center">
 
-🧩 **不把计划写得更长，只把每一步拆得更清楚**<br>
-👀 **不懂代码，也能看见结果、给出反馈、判断是否通过**
+🧭 **Plan 模式锁定项目主轴**<br>
+🙋 **人只批准下一轮要得到什么**<br>
+🔁 **新 Session 自动读取、领取、开发和收尾**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/Platform-Codex%20|%20Claude%20Code-blue)]()
+[![Platform](https://img.shields.io/badge/Platform-Codex%20|%20Claude%20Code%20|%20Proma%20Pi-blue)]()
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933)](https://nodejs.org/)
-[![Mode](https://img.shields.io/badge/Mode-Plan%20Only-orange)]()
+[![Skills](https://img.shields.io/badge/Skills-4-orange)]()
 
 </div>
-
----
-
-## 👋 完全不懂技术？先看这里
-
-你不需要先搞懂 Git、分支、Worktree 或任何代码。
-
-这个工具做的事，可以简单理解成：
-
-> AI 先把大任务拆成几小步。每做完一步，你亲眼看看结果；满意了，它才能继续。
-
-如果几件事互不影响，它还会告诉你：
-
-> “这几步可以分别开几个 AI 对话，同时做，会更快。”
-
-你只需要记住三件事：
-
-- 你只负责看结果，不负责检查代码。
-- AI 不确定会不会互相影响时，就必须一个一个做。
-- 没有得到你的同意，AI 不能把项目上传到 GitHub。
-
-### 这次怎么验收这份 README
-
-你只看下面两个地方：
-
-1. 找到“多个 Session 怎么同时开发”，确认它说明了哪些任务可以同时做。
-2. 找到“Git 和 GitHub 怎么安排”，确认它说明了什么时候保存、什么时候不能上传。
-
-能看懂这两件事，这份 README 的本轮验收就通过；其他技术细节现在可以不看。
-
----
-
-## 🤔 你有没有遇到过……
-
-AI 给你列了一份十几条的技术计划：
-
-> “先完成数据库迁移，再抽象服务层，然后重构状态管理……”
-
-每一个字你都认识，但连起来就不知道该怎么验收。
-
-于是开发过程变成了：
-
-> “你先继续做吧。”<br>
-> “现在做完了吗？”<br>
-> “好像不太对，再改改。”<br>
-> “等等，前面到底做了什么？”
-
-问题通常不是计划不够详细，而是它只写给开发者看：
-
-- 🧱 一步塞进了太多互相独立的改动
-- 🌫️ 用户看不到中间结果，只能等 AI 宣布“完成”
-- 🧪 验收变成看代码、看日志、看测试——但你根本不看这些
-- 🔄 反馈没有明确边界，一句话就让 AI 重做半个项目
-
-🧭 **Idiots Roadmap 要解决的不是“AI 应该怎么开发”，而是“用户应该怎么把开发一步步带到终点”。**
 
 ---
 
 ## 🎯 Idiots Roadmap 是什么
 
-**Idiots Roadmap** 是一个只在 Plan 模式工作的开发计划 Skill。
+Idiots Roadmap 是一组为长期 AI 开发设计的项目接力 Skill。
 
-它会把 AI 的技术计划重新拆成一份写给用户看的 `IDIOTS_ROADMAP.md`：
+它不把未来几个月的提示词一次写死，也不要求每个新 Session 猜项目做到了哪里。它只固定长期不会轻易变化的内容：
 
-### 📄 模拟输出案例
+- 最终要做成什么；
+- 各模块分别负责什么；
+- 模块之间怎样对接；
+- 当前最值得做出的用户结果；
+- 哪些结果已经由用户批准。
 
-假设你想给一个现有项目增加任务列表，Roadmap 中的一个子步骤会长这样：
+用户只看项目根目录的 `IDIOTS_ROADMAP.md`。完整模块、接口、证据、领取状态和历史保存在 `.idiotsroadmap/state.json`，不需要人手工维护。
 
-**🧩 子步骤 1：先看到可点击的任务列表**
+### 模拟输出
 
-➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：`web/task-list/**`
+```markdown
+## 👀 下一轮建议
 
-🌿 Git｜从当前干净基线新建整合分支：`ir/task-list/integration`｜验收通过后提交｜本步不推送
+让个人清单真正可以保存。
 
-📋 第 1 步 — 复制以下提示词发给开发 AI：
+完成后你会：
+- 可以新增并完成一个清单项目。
+- 刷新页面后，刚才的内容仍然存在。
 
-```text
-请只实现一个可打开、可点击的任务列表页面。
+这轮不会做：
+- 多人协作。
+- 提醒通知。
 
-🎯 要求：
-- 交付一个可打开的任务列表页，用户可以查看演示任务并切换状态筛选。
-- 显示任务名称、状态和状态筛选。
-- 暂时使用演示数据，并在页面上明确标注。
-- 只修改 `web/task-list/**`；需要改动其他文件时先停止并说明。
-- 多个 Session 共享项目目录时不要切换分支、暂存或提交；支持独立 worktree 时优先使用。
-- 保留已有改动；不要擅自 stash、覆盖或清理。
-- 本步骤验收通过后才提交，不推送远程。
-- 运行必要的前端检查，告诉我如何打开页面。
-- 完成后停止并等待我的验收；不要继续实现后端。
+为什么现在做：列表页面已经可以打开，保存是最短的完整使用流程。
 
-⚠️ 约束：沿用项目现有界面风格，不引入新的前端框架或无关功能。
-
-【🚧 边界条件】
-- 本步骤不实现新增、删除、登录权限或真实数据保存。
-- 暂不可用的操作必须明确标注，不能伪装成已经完成。
-
-【✅ 验收标准】
-- 按开发 AI 给出的方法打开页面，能看到任务列表并切换状态筛选。
-- 页面明确说明当前使用演示数据，未实现的操作没有表现为可用。
+符合你的需求就回复：`开始下一轮`。
+想调整时直接说：`调整：……`。
 ```
 
-☑️ 第 2 步 — 人工验收清单（2 项）：
+用户批准的是“下一轮会得到什么”，不是 AI 的代码方案。
 
-- [ ] 按开发 AI 给出的方法打开页面，能看到任务列表并切换状态筛选。
-- [ ] 页面明确说明当前使用演示数据，未实现的操作没有表现为可用。
+Roadmap 也会直接显示版本保护状态：
 
-💬 第 3 步 — 回复：`1 通过，请继续。`
+```markdown
+## 版本保护
 
-每个步骤都必须：
-
-1. 只产生一个连贯、可运行的结果；
-2. 允许用户单独体验和反馈；
-3. 写明这个 Session 允许修改的文件；
-4. 验收通过后，才进入依赖它的步骤。
-
-> 🪜 **真正适合小白的计划，不是没有技术，而是不要求用户替 AI 理解技术。**
+- 本地版本保护：尚未启用；第一轮开始前由 AI 建立，不需要你执行命令，也不会上传网络。
+- GitHub 备份：已选择创建私人仓库；AI 会在开发前检查登录状态并引导连接，不会创建公开仓库。
+```
 
 ---
 
-## 👤 谁适合用
+## 🧩 四个 Skill 怎样分工
 
-适合所有正在用 AI 开发产品、但不想被技术计划牵着走的人：
+| Skill | 角色 | 负责什么 |
+|---|---|---|
+| `$idiots-roadmap` | 总规划师 | 只在 Plan 模式建立目标、模块、接口、里程碑和第一张结果卡 |
+| `$idiots-roadmap-start` | 接力员 | 在空白开发 Session 自动读取状态、记录批准、领取任务并开始开发 |
+| `$idiots-roadmap-finish` | 收尾员 | 核对实际结果、运行检查、同步必要文档、更新进度并提出下一批 |
+| `$idiots-roadmap-align` | 对齐员 | 比较项目和计划，判断应该改计划、修项目，还是让用户做产品决定 |
 
-- 🏄 刚开始 Vibe Coding，看不懂代码也不想装懂
-- 🧑‍💼 产品、运营、市场或创业者，需要自己把控开发结果
-- 👨‍💻 能看一部分代码，但只熟悉 Python 或前端等特定语言
-- 🔁 经常做到一半才发现方向错了，返工和 token 消耗都很高
-- 🧠 希望自己掌握验收，而不是把“完成”的定义交给 AI
+日常只需要记住两个入口：
 
-你可以选择：
+```text
+$idiots-roadmap
+$idiots-roadmap-start
+```
 
-- `完全不看代码`
-- `能看 Python 基础代码`
-- `能看 JavaScript/TypeScript/CSS 基础代码`
-- 用“其他”自由描述自己的能力边界
-
-系统只会在你声明的范围内设计验收，不会默认扩大你的技术能力。
+通过 Start 开始的开发会带上 Finish 收尾协议。Finish 也可以在中断或手动开发后单独运行；Align 通常由 AI 发现明显偏移时使用。
 
 ---
 
-## ✨ 有它和没它，有什么区别
+## 🔁 一次完整开发怎么走
 
-<div align="center">
+```text
+进入 Plan
+   ↓
+$idiots-roadmap 建立主轴和下一轮建议
+   ↓
+用户批准“下一轮会得到什么”
+   ↓
+新建开发 Session，运行 $idiots-roadmap-start
+   ↓
+Start 读取最新项目并原子领取一个任务
+   ↓
+AI 即时生成技术做法并开发
+   ↓
+Finish 核对结果、更新进度、提出下一轮
+   ↓
+停止，等待用户批准和打开新 Session
+```
 
-| 🌫️ 普通技术计划 | 🗺️ Idiots Roadmap |
+Start 不会直接执行上一轮留下的旧长提示词。详细技术指令是在领取任务后，根据用户已经批准的结果和项目最新状态即时生成的。
+
+---
+
+## ✅ 批准状态写在哪里
+
+批准状态保存在 `.idiotsroadmap/state.json`，同时渲染到 `IDIOTS_ROADMAP.md`。
+
+```text
+Finish 提出下一轮
+        ↓
+proposed：等待用户批准
+        ↓
+用户明确说“开始下一轮”
+        ↓
+approved：允许新 Session 领取
+        ↓
+Start 原子领取
+        ↓
+in_progress：正在开发
+```
+
+用户可以在两个位置批准：
+
+1. Finish 展示下一轮建议后直接回复“开始下一轮”。它只记录批准，不在当前 Session 开发下一项。
+2. 没有当场批准时，在新 Session 运行 Start。Start 先展示同一张结果卡，收到批准后才领取任务。
+
+沉默、AI 自己认为合理、或者“先看看”都不算批准。
+
+只要下一批的用户结果、演示/真实数据、体验验收或明确不做内容发生变化，旧批准就失效。内部技术做法变化不要求用户重复批准。
+
+---
+
+## 👋 完全不看代码怎么用
+
+用户只负责三件事：
+
+1. 判断下一轮结果是不是自己想要的；
+2. 真正打开产品，体验最多两项结果；
+3. 需要继续时打开新的 Session。
+
+代码、接口、迁移、测试和安全检查交给开发 AI 与独立复核 AI。它们意见一致时只显示一句结论；有分歧时先由 AI 解决，不让用户充当技术裁判。
+
+不会再出现这些伪人工验收：
+
+- “查看测试报告是否通过”；
+- “确认数据库迁移已经完成”；
+- “确认 AI 输出了已完成”。
+
+---
+
+## 🧭 接管已有项目
+
+在已经开发了一部分的项目中，`$idiots-roadmap-align` 会先只读分析：
+
+- 页面、路由、API 和共享类型；
+- 数据库、迁移、存储和配置；
+- 测试、fixture 和可运行证据；
+- README、旧计划和项目规则；
+- 本地 Git 状态与近期相关历史。
+
+它不会把文件夹机械当成模块，而是按职责、数据归属、变更关系和依赖拆分。
+
+发现不一致时分四类处理：
+
+| 情况 | 处理方式 |
 |---|---|
-| “完成认证模块和数据库迁移” | “先打开登录页，确认流程和提示是否正确” |
-| AI 说测试通过，你只能相信 | 你亲自操作页面或样例，自己判断 |
-| 一轮做五件事，反馈不知道从哪改 | 一步一个结果，哪里不对就改哪里 |
-| 后端做了很久，用户什么都看不到 | 无代码模式有前端就先做可见页面 |
-| “再调整一下”导致大面积返工 | 每步都写明不做什么 |
-| 计划只告诉 AI 怎么写代码 | Roadmap 告诉你怎么指挥 AI |
+| 项目正确前进，计划过期 | 更新计划和证据 |
+| 项目违反已确定要求 | 保留计划，新增修复工作 |
+| 两种方向都可能合理 | 用大白话让用户选产品结果 |
+| 没有 Roadmap | 在 Plan 模式分析项目并建立第一份基线 |
 
-</div>
+没有实际差异时只更新证据，不重排路线，也不让用户重新批准。
 
 ---
 
-## 🎬 三步上路
+## 🔀 多个 Session 同时开发
+
+只有满足以下条件才会并行：
+
+- 共享接口已经确定；
+- 文件范围互不重叠；
+- 所有 Session 基于同一个版本；
+- 并行后紧跟一个整合 Session；
+- 同一批最多三个 Session。
+
+用户批准一次整个批次，然后分别打开多个 Session，在每个 Session 运行：
 
 ```text
-# 1️⃣ 进入 Plan 模式，描述你想做的产品
-“我想给现有项目增加一个任务管理功能……”
-
-# 2️⃣ 启用 Idiots Roadmap，并选择你的能力范围
-“启用 Idiots Roadmap”
-“完全不看代码”
-
-# 3️⃣ 打开 IDIOTS_ROADMAP.md，从第一个未完成步骤开始
-复制提示词 → 让 AI 开发 → 按两项以内的条目验收 → 通过后继续
+$idiots-roadmap-start
 ```
 
-Skill 写完 Roadmap 就会停止。
+每个 Start 会通过项目锁自动领取不同任务。已经被领取的任务不会被另一个 Session 重复开发。
 
-它不会自动批准计划、退出 Plan、开始开发，也不会替你擅自把步骤标记为完成。
+Roadmap 根据宿主选择 Codex Worktree、Claude Code Worktree、手动 Worktree或共享目录。无法确认隔离与文件边界时自动改为串行。
 
 ---
 
-## 🖥️ 完全不看代码？先让你看到页面
+## 🧹 Finish 会不会生成一堆文档
 
-如果项目包含前端，Idiots Roadmap 会把前端验证提前：
+不会。
 
-```text
-第 1 步：先做出可打开、可点击的页面
-        ↓
-用户直接体验布局、文案和核心流程
-        ↓
-后续再接真实后端、数据库和业务规则
-        ↓
-回到同一页面，验证真实数据和真实行为
-```
+Finish 借鉴 `neat-s` 的收尾理念：核对真实改动、修正文档、删掉过期说法、给下一 Session 留下可靠状态。但它不会依赖用户安装 `neat-s`，也不会创建 `docs/state/current.md`、`next.md`、`sessions.md` 或逐步骤验收报告。
 
-后端还没做好时，可以先使用演示数据，但必须遵守三条规则：
+进度始终只有两份来源：
 
-- 🏷️ 页面明确标注“演示数据”
-- 🚫 支付、权限、安全、数据写入等未完成功能不能伪装成可用
-- 🔌 后续必须安排真实接口集成，并再次从前端验收
+- `IDIOTS_ROADMAP.md`：给人看；
+- `.idiotsroadmap/state.json`：给 AI 和状态工具使用。
 
-如果项目没有前端，则优先提供样例输入输出、可打开报告或其他用户能理解的结果。
+正式 README、接口和架构文档只在本次功能真的影响它们时更新。
 
 ---
 
-## ⚡ 多个 Session 怎么同时开发
+## 🔄 中途改需求会怎样
 
-你可以把一个 Session 理解成“一个单独的 AI 开发对话”。
+- 当前结果的小调整：只修改当前工作；
+- 不着急的新想法：放入待办，不打断现在；
+- 模块内部变化：只重排相关未完成工作；
+- 接口变化：标出提供方、使用方和整合关卡；
+- 总目标变化：回到 Plan，归档旧 Roadmap 后建立新目标。
 
-Roadmap 会先把共享规则定下来，再把文件互不重叠的工作放进同一批：
-
-```text
-第 1 批：子步骤 1（先确定共享契约）
-                    ↓
-第 2 批：子步骤 2A  🔀  子步骤 2B
-         前端 Session     后端 Session
-         只改 web/...     只改 server/...
-                    ↓
-第 3 批：子步骤 3（等待两边通过，再统一联调）
-```
-
-你只需要把 2A、2B 的提示词分别发到两个新 Session。每个 Session 都会看到自己的文件范围；如果必须碰到其他 Session 的文件，它应该停下来报告，而不是继续修改。
-
-Skill 会先判断你实际用哪种方式，不再把所有工具都写成同一套 Git 操作：
-
-| 你现在怎么开发 | Roadmap 会怎么安排 | 你需要做什么 |
-|---|---|---|
-| Codex 给每个任务独立项目副本 | 每个步骤使用一个 Codex Worktree 任务 | 从已通过的共同起点新建任务，再粘贴对应提示词 |
-| Claude Code CLI 或 Desktop | 每个步骤使用一个 Claude Worktree Session | CLI 用 `claude --worktree 名称`；Desktop 点新建 Code Session |
-| 工具没有自动隔离 | 开发 AI 创建手动 Worktree | 你只粘贴提示词，Git 命令由 AI 处理 |
-| 几个 Session 共用同一个项目目录 | 各自只改互不重叠的文件，期间谁都不提交 | 分别粘贴提示词，最后把结果交给一个整合 Session |
-
-Worktree 可以理解成“给每个 AI 一份互不干扰的项目副本”。Claude Code 的 CLI 和 Desktop 都有官方 Worktree 流程；Codex App 也提供内置 Worktree 支持。详见 [Claude Code Worktree 文档](https://code.claude.com/docs/en/worktrees) 与 [OpenAI Codex 使用说明](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan)。
-
-每个并行批次开始前，Roadmap 会记录一个 `baseCommit`。它就是“大家共同复制的、已经被你验收过的版本”。任何 Session 发现自己的版本不包含这个起点，都必须停止，不能在旧版本上继续做。
-
-Claude Code 有一个容易踩的坑：默认 Worktree 可能从远程默认分支开始。如果刚通过的改动还只在本地，Roadmap 会要求先从本地 `HEAD` 开始并核对共同起点，避免新 Session 看不到刚刚完成的工作。
-
-如果几个 AI 对话共用同一份项目文件，它们在并行阶段都不能切换分支、暂存或提交，避免把别人的改动一起保存；最后只由一个专门的整合对话统一检查和提交。
-
-Roadmap 只在满足这些条件时标为并行：
-
-- 共享接口或数据格式已经确定；
-- 两个 Session 修改的文件或目录不重叠；
-- 后面有一个单独的整合步骤负责联调和整体复验。
-
-无法安全划分时会直接标为 `➡️ 串行 Session`。Skill 不会自动开启 Session、创建 worktree 或合并代码。
-
-并行结果清理也有顺序：先确认用户已经通过，再确认整合完成且没有未保存改动，最后才归档 Session、删除临时 Worktree 或清理步骤分支。中间任一步说不清楚，就保留现场并停止。
+如果变化影响已经批准的用户结果，状态自动回到 `proposed`，重新展示结果卡。已完成历史和用户做过的决定不会被重写。
 
 ---
 
-## 🌿 Git 和 GitHub 怎么安排
+## 🕹️ 使用方法
 
-Git 可以简单理解成“项目的版本存档”；GitHub 则是把这个存档放到网上。
+### 第一次建立项目路线
 
-Roadmap 生成前会只读检查仓库，并直接告诉你：
+1. 在 Codex、Claude Code 或 Proma Pi 中进入 Plan 模式。
+2. 描述目标，选择启用 Idiots Roadmap。
+3. 选择 `完全不看代码`、允许阅读的代码语言，或自由描述能力。
+4. 运行或让宿主调用 `$idiots-roadmap`。
+5. 没有 GitHub 时，选择私人云端备份、暂时只在本机或连接已有仓库。
+6. 查看下一轮结果卡，回复“开始下一轮”或提出调整。
+
+### Plan 里为什么可以保存 Roadmap
+
+Roadmap 是这次规划本身，不是产品开发。Plan 中只允许保存：
+
+- 给你看的 `IDIOTS_ROADMAP.md`；
+- 给后续 AI 接力用的 `.idiotsroadmap/`。
+
+产品代码、配置、普通文档和 Git 都不会在这一步改动。
+
+如果宿主允许保存规划文件，Skill 会直接落盘；如果宿主把 Plan 设成彻底只读，Skill 会先把计划留在对话里。你确认 Plan 后，它只把 Roadmap 保存下来，然后立刻停止，不会顺手开始开发。
+
+### 新 Session 继续开发
 
 ```text
-本地 Git：已启用
-工作区：clean
-当前分支：main
-GitHub：已连接（origin） / 未连接（不影响本地并行）
-整合分支：ir/task-list/integration
-提交：每个步骤验收通过后
-推送：整个 Roadmap 最终验收通过，并且你明确同意后
+$idiots-roadmap-start
 ```
 
-GitHub 不是并行开发的前提。本地 Git 分支和 worktree 已经能隔离多个 Session；没有 GitHub remote 时，Roadmap 不会擅自建仓库、登录账号或添加连接。
+不需要复制 Roadmap 里的长提示词，也不需要先提醒 AI 阅读哪些文件。
 
-分支生命周期固定为：
+### 手动补收尾
 
 ```text
-从当前干净基线创建整合分支 ir/task-list/integration
-            │
-            ├─ 开始子步骤 2A 时，新建 ir/task-list/step-02
-            └─ 开始子步骤 2B 时，新建 ir/task-list/step-03
-                         ↓
-              两个步骤分别验收通过后提交
-                         ↓
-              整合 Session 合回 ir/task-list/integration
-                         ↓
-              用户完成整个 Roadmap 的最终复验
-                         ↓
-              用户明确说“可以推送”后才 push
+$idiots-roadmap-finish
 ```
 
-整合分支特意使用 `ir/task-list/integration`，步骤分支使用 `ir/task-list/step-02`。它们是同级名字；不要先建 `ir/task-list` 再建它的“下级分支”，Git 会直接拒绝这种命名。
+### 检查项目与计划是否走偏
 
-如果工作区已有未提交改动，Roadmap 会先安排“保护基线”。开发 AI 必须先说明现状并等你决定，不能自行 stash、提交、覆盖或清理你的改动。
+```text
+$idiots-roadmap-align
+```
 
 ---
 
-## 📋 Roadmap 长什么样
+## 🧰 支持范围
 
-````markdown
-**🧩 子步骤 1：看到可点击的任务列表**
+| 平台 | 当前支持 |
+|---|---|
+| Codex | 四个 Skill；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
+| Claude Code | 四个 Skill；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
+| Proma Pi | 四个 Skill；不依赖 hooks，直接落盘或在 Plan 确认后补落盘 |
+| OpenCode | 暂不支持 |
+| Hermes | 不支持 |
 
-➡️ 串行 Session｜第 1 批｜等待：无｜文件范围：`web/task-list/**`
+hooks 只是省掉手动触发的自动化层，不是核心能力。Proma Pi 不需要模拟 Claude/Codex hooks，也不需要等待 `ExitPlanMode` 事件。
 
-🌿 Git｜从当前干净基线新建整合分支：`ir/task-list/integration`｜验收通过后提交｜本步不推送
-
-📋 第 1 步 — 复制以下提示词发给开发 AI：
-
-```text
-只实现任务列表页面，不接真实写入接口。
-
-🎯 要求：
-- 只修改 `web/task-list/**`；需要改动其他文件时停止并说明。
-- 保留已有改动；本步验收前不提交，不推送。
-- 运行必要检查。
-- 告诉我打开页面的方法，然后停止等待验收。
-
-⚠️ 约束：不引入新的前端框架，不修改无关页面。
-
-【🚧 边界条件】
-不实现新增、删除、权限和数据写入，不重构其他页面。
-
-【✅ 验收标准】
-- 页面能正常打开，任务列表和筛选入口清楚可见。
-- 演示数据及未实现功能都有明确标识。
-```
-
-☑️ 第 2 步 — 人工验收清单（2 项）：
-
-- [ ] 页面能正常打开，任务列表和筛选入口清楚可见。
-- [ ] 演示数据及未实现功能都有明确标识。
-
-💬 第 3 步 — 回复：`1 通过，请继续。`
-````
-
-用户验收永远不超过两项。
-
-技术测试仍然会要求开发 AI 执行，但不会把日志、终端或测试报告丢给完全不看代码的用户。
-
----
-
-## 🧰 支持的平台
-
-| 平台 | 工作模式 | 自动能力 |
-|---|---|---|
-| 🟢 **Codex** | Plan 模式 | 两轮选择、动态语言选项、自动落盘 |
-| 🟣 **Claude Code** | Plan 模式 | 两轮选择、动态语言选项、自动落盘 |
-| ⚪ OpenCode | V1 不支持 | 后续再评估 |
-| ⚪ Hermes | 不支持 | 缺少可靠的原生 Plan 模式 |
-
-自动 hooks 需要 **Node.js 18+**。
-
-如果没有 Node.js，Skill 仍可手动调用，但自动提问和自动落盘会静默停用，不影响宿主正常工作。
+原子落盘和跨 Session 状态管理需要 Node.js 18+。Node 不可用时仍可读取 Skill，但不能保证可靠保存、批准门和任务领取。
 
 ---
 
@@ -365,14 +294,10 @@ GitHub 不是并行开发的前提。本地 Git 分支和 worktree 已经能隔�
 
 ### Claude Code
 
-在 Claude Code 中分两次执行：
-
 ```text
 /plugin marketplace add idiots-roadmap/idiots-roadmap
 /plugin install idiots-roadmap@idiots-roadmap
 ```
-
-然后进入 Plan 模式开始一个新计划。
 
 ### Codex
 
@@ -381,153 +306,72 @@ codex plugin marketplace add https://github.com/idiots-roadmap/idiots-roadmap.gi
 codex plugin add idiots-roadmap@idiots-roadmap
 ```
 
-安装后运行 `/hooks`，检查并信任 `idiots-roadmap` 的三个本地 Node.js hook，再新建一个 Plan 模式任务。
+Codex 首次安装后运行 `/hooks`，审核并信任本地 Node.js hooks。GitHub 安装不能绕过宿主安全门。
 
-> 🔐 GitHub 安装不能绕过宿主的 hook 信任门。首次人工审核不是多余步骤，而是防止第三方插件在本机执行未知命令。
+### Proma Pi
 
----
-
-## 🕹️ 怎么使用
-
-1. 在项目中切换到 Plan 模式。
-2. 描述一个新的开发目标。
-3. 第一轮选择 `启用 Idiots Roadmap`。
-4. 第二轮选择自己的能力范围。
-5. 继续回答 AI 正常的产品和实现问题。
-6. 打开项目根目录的 `IDIOTS_ROADMAP.md`。
-7. 先看 `Git 状态` 和 `Session 安排`；同一并行批次可分别开启多个新 Session。
-8. 复制各子步骤提示词，让每个开发 AI 只修改声明的文件范围和分支。
-9. 按最多两项用户验收检查结果；通过后让该 Session 提交，但不要推送。
-10. 整个 Roadmap 最终验收通过后，如需同步 GitHub，再明确回复允许推送。
-
-同一计划的后续澄清不会重复询问。
-
-要切换能力范围，请重新进入 Plan 模式或显式调用 `$idiots-roadmap`。切换后：
-
-- ✅ 已完成步骤保持原样
-- ✍️ 所有未完成步骤按新能力范围重写
-
-开始新目标时，旧 Roadmap 会自动归档到：
-
-```text
-.idiotsroadmap/archive/时间-目标.md
-```
+把发布包中的 `skills/` 导入 Proma 的 Workspace Skills，然后在 Plan 中显式运行 `$idiots-roadmap`。Proma Pi 默认走 Skill 自带的便携式落盘工具，不要求 hooks。
 
 ---
 
-## 🛡️ 它不会做什么
+## 🛡️ 不会做什么
 
-| 边界 | 为什么 |
-|---|---|
-| 不在 Build 模式运行 | 防止 Roadmap 生成和实际开发混在一起 |
-| 不自动批准或退出 Plan | 计划控制权仍然属于用户 |
-| 不自动开始下一步 | 只有用户明确验收通过才继续 |
-| 不自动开启或合并 Session | 并行编排由 Roadmap 说明，实际 Session 和代码整合仍由用户掌控 |
-| 不自动连接 GitHub 或 push | 本地并行不依赖远程；只有用户明确授权才连接或推送 |
-| 不调用外部 API 或额外模型 | 不增加隐性费用和隐私风险 |
-| 不保存全局能力档案 | 每个项目、每个目标都按当前选择处理 |
-| 不覆盖校验失败的旧文件 | AI 连续两次输出错误时，保住已有 Roadmap |
-
-写入时使用临时文件和原子重命名，并拒绝路径穿越或指向项目外部的符号链接。
+- 不在用户批准前开始下一批；
+- 不让普通 AI 状态更新伪造用户批准；
+- 不要求用户维护详细技术提示词；
+- 不自动创建 Session；不在用户选择前连接 GitHub，也不擅自推送；
+- 没有 Git 时会在第一轮开始前由 AI 建立本地版本保护；没有 GitHub 时只询问一次去向，不把命令交给用户；
+- 不把技术判断交给不看代码用户；
+- 不用旧计划覆盖项目事实，也不用错误项目篡改已确定计划；
+- 不在项目外保存能力、代码或私有路径；
+- 不创建多套互相冲突的进度文档。
 
 ---
 
-## 🛟 hooks 没运行怎么办
+## 🧪 开发验证
 
-在 Plan 模式显式输入：
-
-```text
-Use $idiots-roadmap to turn this proposal into a user-verifiable roadmap.
-```
-
-Skill 仍会生成完整 Roadmap。此时把标记内的 Markdown 手动保存为项目根目录的 `IDIOTS_ROADMAP.md` 即可。
-
----
-
-## 🧪 开发与验证
-
-项目没有 npm 运行时依赖。
+项目没有 npm 运行时依赖：
 
 ```powershell
-npm test
-npm run validate
+npm.cmd test
+npm.cmd run validate
 ```
 
-测试覆盖 Codex/Claude hook 输入、Plan/非 Plan 分流、启用与跳过、格式校验、单次纠错、归档、能力切换、路径安全、多 Session 文件隔离、Git 分支生命周期、GitHub 状态与串行整合，以及以下黄金场景：
+项目本地状态工具：
 
-- 完全不懂代码的新前端项目
-- 已有前端、后端尚未实现
-- 演示数据后接入真实接口
-- 纯后端或 CLI 项目的无代码验收
-- Python、前端语言和自定义能力
-- 已有部分完成步骤后的能力切换
-- 前后端多个 Session 并行后统一联调
+```powershell
+node .idiotsroadmap/runtime/roadmap-state.mjs validate
+node .idiotsroadmap/runtime/roadmap-state.mjs approve
+node .idiotsroadmap/runtime/roadmap-state.mjs claim
+node .idiotsroadmap/runtime/roadmap-state.mjs reclaim <work-item-id>
+node .idiotsroadmap/runtime/roadmap-state.mjs apply .idiotsroadmap/next-state.json
+```
 
-CI 在 Windows、macOS、Linux 和 Node.js 18/20/22 上运行。
-
----
-
-## 🗺️ Roadmap
-
-- [x] Codex 与 Claude Code V1
-- [x] 完全不看代码与指定语言阅读模式
-- [x] 无代码模式前端优先
-- [x] Roadmap 校验、归档和安全写入
-- [x] 多 Session 并行批次、文件范围与整合步骤
-- [x] Git/GitHub 状态、验收后提交与授权后推送
-- [ ] 评估 OpenCode 的可靠 Plan 模式接入
-- [ ] 更直观的 Roadmap 进度展示
-- [ ] 更多真实项目黄金样例
-
----
-
-## 🔧 发布前配置
-
-当前插件清单默认使用：
+首次没有项目内 runtime 时，由主 Skill 使用发布包内的便携工具执行：
 
 ```text
-https://github.com/idiots-roadmap/idiots-roadmap
+node <idiots-roadmap Skill 目录>/scripts/roadmap-state.mjs bootstrap .idiotsroadmap/initial-state.json <项目根目录>
 ```
 
-如果实际 GitHub 所有者或仓库名不同，发布前同步修改：
-
-- `.codex-plugin/plugin.json`
-- `.claude-plugin/plugin.json`
-- `.agents/plugins/marketplace.json`
-- `.claude-plugin/marketplace.json`
-- 本 README 的安装命令
-
-修改后运行全量验证。项目不会自动执行 `git push` 或发布。
+测试覆盖未批准禁止领取、批准防伪、用户结果变化后重新批准、并行 Session 原子领取、revision 冲突、历史保护、已有项目接管和前端优先。
 
 ---
 
 ## 🗑️ 卸载
 
-**Claude Code**
+Claude Code：
 
 ```text
 /plugin uninstall idiots-roadmap@idiots-roadmap
 ```
 
-**Codex**
+Codex：
 
 ```powershell
 codex plugin remove idiots-roadmap@idiots-roadmap
 ```
 
-卸载只移除插件。项目中已经生成的 `IDIOTS_ROADMAP.md` 和 `.idiotsroadmap/archive/` 会保留，避免误删用户计划。
-
----
-
-## 🤝 贡献
-
-发现步骤拆得不合理、验收对小白不友好，或者某个平台 hook 行为异常？欢迎提交 Issue 和 PR。
-
-1. Fork 本仓库
-2. 创建 feature 分支
-3. 添加或更新对应测试
-4. 运行 `npm test` 和 `npm run validate`
-5. 提交 Pull Request
+卸载插件不会删除项目里的 Roadmap、状态和归档，避免误删开发历史。
 
 ---
 
@@ -535,12 +379,8 @@ codex plugin remove idiots-roadmap@idiots-roadmap
 
 MIT © 2026 Idiots Roadmap Contributors
 
----
-
 <div align="center">
 
-### 🪜 不需要先学会开发，才能把产品一步步做出来。
-
-**看见结果，给出反馈，通过以后，再走下一步。**
+### 人决定下一轮得到什么，AI负责怎么做和怎样接力。
 
 </div>

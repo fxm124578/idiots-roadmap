@@ -1,0 +1,4 @@
+interface:
+  display_name: "Idiots Roadmap Finish"
+  short_description: "Close current work and propose the next approved batch"
+  default_prompt: "Use $idiots-roadmap-finish to close the current work and propose the next user-visible result."

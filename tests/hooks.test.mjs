@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { makeEnvelope } from "./helpers/roadmap-fixture.mjs";
+import { makeV3Envelope } from "./helpers/project-state-fixture.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -37,9 +38,11 @@ test("Codex Plan input receives JSON additionalContext and dynamic languages", (
   assert.equal(result.status, 0);
   const output = JSON.parse(result.stdout);
   assert.match(output.hookSpecificOutput.additionalContext, /完全不看代码/);
+  assert.match(output.hookSpecificOutput.additionalContext, /IDIOTS_ROADMAP_LANDING_MODE: hook/);
   assert.match(output.hookSpecificOutput.additionalContext, /JavaScript\/TypeScript\/CSS/);
   assert.match(output.hookSpecificOutput.additionalContext, /hasFrontend=true/);
-  assert.match(output.hookSpecificOutput.additionalContext, /Git 只读检测/);
+  assert.match(output.hookSpecificOutput.additionalContext, /项目来源：existing/);
+  assert.match(output.hookSpecificOutput.additionalContext, /仓库事实/);
   assert.match(output.hookSpecificOutput.additionalContext, /"remoteProvider":"none"/);
 });
 
@@ -48,7 +51,8 @@ test("Claude Plan input receives plain context", () => {
     env: { PLUGIN_DATA: "", CODEX_THREAD_ID: "" },
   });
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /^IDIOTS ROADMAP PLAN PROTOCOL/);
+  assert.match(result.stdout, /^IDIOTS ROADMAP V3 PLAN PROTOCOL/);
+  assert.match(result.stdout, /IDIOTS_ROADMAP_LANDING_MODE: hook/);
 });
 
 test("opt-out marker never creates a Roadmap", (t) => {
@@ -90,6 +94,28 @@ test("Stop writes a valid Codex Roadmap", (t) => {
   assert.equal(result.status, 0);
   assert.match(JSON.parse(result.stdout).systemMessage, /已写入/);
   assert.equal(fs.existsSync(path.join(root, "IDIOTS_ROADMAP.md")), true);
+});
+
+test("Stop writes V3 machine state and the compact user Roadmap", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "idiots-stop-v3-"));
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "idiots-hook-state-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(stateRoot, { recursive: true, force: true }));
+  const result = runHook(
+    "land-roadmap.mjs",
+    {
+      permission_mode: "plan",
+      cwd: root,
+      session_id: "valid-v3",
+      stop_hook_active: false,
+      last_assistant_message: makeV3Envelope().text,
+    },
+    { env: { IDIOTS_ROADMAP_STATE_DIR: stateRoot, PLUGIN_DATA: path.join(root, "plugin-data") }, args: ["--event=Stop"] },
+  );
+  assert.equal(result.status, 0);
+  assert.match(JSON.parse(result.stdout).systemMessage, /已写入/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, ".idiotsroadmap", "state.json"), "utf8")).schemaVersion, 3);
+  assert.match(fs.readFileSync(path.join(root, "IDIOTS_ROADMAP.md"), "utf8"), /开始下一轮/);
 });
 
 test("ExitPlanMode input is preferred and denied after writing", (t) => {

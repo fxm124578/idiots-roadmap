@@ -1,7 +1,7 @@
 {
   "name": "idiots-roadmap",
-  "version": "1.0.0",
-  "description": "Turn Plan-mode technical proposals into clear, user-verifiable development roadmaps.",
+  "version": "2.1.0",
+  "description": "Plan, approve, start, finish, and realign long-running AI development across sessions, with or without hooks.",
   "author": {
     "name": "Idiots Roadmap Contributors"
   },
@@ -12,24 +12,25 @@
     "planning",
     "roadmap",
     "no-code",
-    "user-acceptance"
+    "session-handoff",
+    "project-management"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Idiots Roadmap",
-    "shortDescription": "Plans that non-programmers can drive and verify",
-    "longDescription": "Break Plan-mode proposals into bounded development steps with copyable prompts and at most two user-facing acceptance checks.",
+    "shortDescription": "Human-approved AI project relays across sessions",
+    "longDescription": "Use four focused Skills to plan project boundaries, approve user-visible batches, resume safely in empty sessions, close completed work, and realign live projects without maintaining long prompts.",
     "developerName": "Idiots Roadmap Contributors",
     "category": "Productivity",
     "capabilities": [
       "Instructions",
-      "Lifecycle hooks",
+      "Optional lifecycle hooks",
       "Project files"
     ],
     "websiteURL": "https://github.com/idiots-roadmap/idiots-roadmap",
     "defaultPrompt": [
-      "Turn this Plan-mode proposal into an Idiots Roadmap.",
-      "Make this plan verifiable without reading code."
+      "Use Idiots Roadmap in Plan mode to create a project relay for this goal.",
+      "Use Idiots Roadmap Start in a new development session to resume approved work."
     ],
     "brandColor": "#F97316"
   }

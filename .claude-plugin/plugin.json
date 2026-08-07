@@ -1,7 +1,7 @@
 {
   "name": "idiots-roadmap",
-  "version": "1.0.0",
-  "description": "Turn Plan-mode technical proposals into clear, user-verifiable development roadmaps.",
+  "version": "2.1.0",
+  "description": "Plan, approve, start, finish, and realign long-running AI development across sessions, with or without hooks.",
   "author": {
     "name": "Idiots Roadmap Contributors"
   },
@@ -12,6 +12,7 @@
     "planning",
     "roadmap",
     "no-code",
-    "user-acceptance"
+    "session-handoff",
+    "project-management"
   ]
 }
