@@ -48,7 +48,7 @@ test("renders plain Git and GitHub guidance for an uninitialized project", () =>
     baseCommit: null,
   };
   state.project.analysis.baseCommit = null;
-  state.workItems[0].session = { strategy: "serial", baseCommit: null, prompt: "" };
+  state.workItems[0].session = { strategy: "serial", baseCommit: null, branch: "ir/list/integration", prompt: "" };
 
   const validation = validateProjectState(state, makeV3Envelope(state).metadata);
   assert.equal(validation.valid, true, validation.errors.join("\n"));
@@ -65,6 +65,15 @@ test("new Roadmaps remember the GitHub choice while old V3 states remain readabl
   const validation = validateProjectState(state, makeV3Envelope(state).metadata);
   assert.equal(validation.valid, false);
   assert.match(validation.errors.join("\n"), /必须记录 repository\.githubMode/);
+});
+
+test("new Roadmaps plan task branches while old V3 states remain readable", () => {
+  const state = makeProjectState();
+  delete state.workItems[0].session.branch;
+  assert.equal(validateProjectState(state).valid, true);
+  const validation = validateProjectState(state, makeV3Envelope(state).metadata);
+  assert.equal(validation.valid, false);
+  assert.match(validation.errors.join("\n"), /session\.branch 必须在新 Roadmap 中明确规划/);
 });
 
 test("awaiting user experience hides the development prompt", () => {
@@ -235,6 +244,7 @@ test("validates isolated parallel work followed by one integration item", () => 
     evidence: [],
   });
   state.workItems[0].execution = "parallel";
+  state.workItems[0].session.branch = null;
   state.workItems[0].contractIds = ["ctr_record"];
   state.workItems.push({
     ...structuredClone(state.workItems[0]),
@@ -244,7 +254,7 @@ test("validates isolated parallel work followed by one integration item", () => 
     kind: "backend",
     moduleIds: ["mod_data"],
     files: ["src/data/**"],
-    session: { ...structuredClone(state.workItems[0].session), prompt: "" },
+    session: { ...structuredClone(state.workItems[0].session), branch: null, prompt: "" },
     completion: {
       authority: "ai-review",
       acceptance: [],
@@ -263,12 +273,24 @@ test("validates isolated parallel work followed by one integration item", () => 
     execution: "serial",
     dependsOn: ["work_page", "work_data"],
     files: ["src/integration/**"],
-    session: { strategy: "serial", baseCommit: "0123456", prompt: "" },
+    session: { strategy: "serial", baseCommit: "0123456", branch: "ir/list/integration", prompt: "" },
   });
   state.current.workItemIds = ["work_page", "work_data"];
   state.current.approval.workItemIds = ["work_page", "work_data"];
   state.current.approval.visibleResults = ["可以操作清单页面", "清单数据可以真实读取"];
   assert.equal(validateProjectState(state).valid, true);
+
+  const isolated = structuredClone(state);
+  isolated.repository.workspaceStrategy = "manual-worktree";
+  const parallel = isolated.workItems.filter((item) => item.execution === "parallel");
+  for (const item of parallel) {
+    item.session.strategy = "manual-worktree";
+    item.session.branch = "ir/rm_fixture001/shared";
+  }
+  assert.match(validateProjectState(isolated).errors.join("\n"), /并行任务分支重复/);
+  parallel[0].session.branch = "ir/rm_fixture001/work_page";
+  parallel[1].session.branch = "ir/rm_fixture001/work_data";
+  assert.equal(validateProjectState(isolated).valid, true);
 
   state.workItems[1].files = ["src/list/detail/**"];
   assert.match(validateProjectState(state).errors.join("\n"), /文件范围重叠/);
@@ -382,6 +404,7 @@ test("a long Session chain keeps the goal stable and the user document compact",
     session: {
       strategy: "serial",
       baseCommit: "0123456",
+      branch: "ir/list/integration",
       prompt: index === 0 ? `只完成技术任务 1，复核后写入候选状态，运行 ${APPLY_COMMAND} 并停止。\n${HANDOFF_GUARD}` : "",
     },
     completion: {

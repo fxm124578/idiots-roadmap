@@ -74,6 +74,7 @@ export function makeProjectState(overrides = {}) {
         session: {
           strategy: "shared-directory",
           baseCommit: "0123456",
+          branch: "ir/list/integration",
           prompt: "",
         },
         completion: {

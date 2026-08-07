@@ -1,6 +1,6 @@
 {
   "name": "idiots-roadmap",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "A hook-optional four-Skill project relay with human-approved batches and safe cross-session handoff.",
   "type": "module",

@@ -85,6 +85,7 @@ description: 在 Plan 模式中为新项目或已有项目建立 Idiots Roadmap 
 4. 模块提供与消费的接口合同：提供方、使用方、版本、兼容性、证据。
 5. 工作项依赖、当前批次和未来骨架。
 6. 本地版本保护与 GitHub 去向；没有 Git 时首批必须串行。
+7. 每个工作项的 Git 去向：串行与整合工作使用 `repository.integrationBranch`；隔离并行工作使用 `ir/<roadmapId>/<workItemId>`；共享目录并行使用 `branch: null`。
 
 提示词不是事实源。目标、模块、合同和状态进入 `.idiotsroadmap/state.json`；`IDIOTS_ROADMAP.md` 只是自动渲染的用户视图。
 
@@ -144,6 +145,8 @@ description: 在 Plan 模式中为新项目或已有项目建立 Idiots Roadmap 
 路由、数据库结构、全局配置、锁文件、权限、共享状态和公共设计默认串行。根据宿主选择一种 `workspaceStrategy`：Codex 托管 Worktree、Claude 托管 Worktree、手动 Worktree 或共享目录。无法确认隔离时改为串行。
 
 共享目录并行时不切分支、不暂存、不提交，由整合 Session 统一收口。Skill 只建立编排，不声称已经创建 Session、分支或 Worktree。
+
+为每个工作项写入 `session.branch`。独立并行分支必须稳定、互不重复且不能占用整合分支；不要把绝对 Worktree 路径写入状态。Start 负责实际创建或进入分支，Finish 负责验收后的本地提交，整合工作负责合并依赖分支。
 
 独立 Worktree 需要在共同基线中包含 `IDIOTS_ROADMAP.md`、`.idiotsroadmap/state.json` 和 `.idiotsroadmap/runtime/`，否则 Start Skill 无法接力。`.idiotsroadmap/next-state.json` 是临时文件，状态工具成功后会删除，不得提交。用户不希望把项目管理状态放入版本记录时，取消独立 Worktree 并改为共享目录或串行。任何远程推送仍需用户明确授权。
 

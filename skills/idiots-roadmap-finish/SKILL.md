@@ -42,7 +42,7 @@ description: 收尾当前 Idiots Roadmap 开发工作并建立可靠接力。显
 
 独立复核一致后标记为 `technical_verified`；存在分歧时标记阻塞或需要复核，不得假装完成。
 
-按项目 Git 规则处理提交。用户可体验工作只能在体验通过后提交；纯技术工作只能在复核一致后形成检查点；不得自动推送。
+用户可体验工作只能在体验通过后提交；纯技术工作只能在复核一致后形成检查点；等待体验时不得提前提交。
 
 ## 提出下一批
 
@@ -56,9 +56,20 @@ description: 收尾当前 Idiots Roadmap 开发工作并建立可靠接力。显
 
 把候选状态写入 `.idiotsroadmap/next-state.json`，再运行 `node .idiotsroadmap/runtime/roadmap-state.mjs apply .idiotsroadmap/next-state.json`。成功后临时文件会删除，Roadmap 会重新渲染。
 
+## Git 收口
+
+只有当前工作已成为 `accepted` 或 `technical_verified`，并且包含下一批提案的最终状态已经成功 `apply` 后，才处理本地提交：
+
+1. 重新读取 `git status`，确认当前分支等于工作项的 `session.branch`；共享目录并行除外。
+2. 将实际改动与当前工作 `files` 对照。只额外允许本次确实需要的 `AGENTS.md`、`CLAUDE.md`、`README.md`、接口/架构文档、`IDIOTS_ROADMAP.md` 和 `.idiotsroadmap/state.json`。发现无关改动就停止，不夹带、不 stash、不清理。
+3. 共享目录并行工作不暂存、不提交，只说明“等待整合 Session 统一提交”。
+4. 其他工作只暂存上述已核对文件，检查 staged diff，再用简洁英文提交信息创建本地提交；没有实际改动时不制造空提交。
+5. 输出提交短哈希并停止。不得自动 push，也不得在 Finish 中领取下一项。
+
+整合工作必须把已合并的依赖结果、整合修正、最终 Roadmap 状态放在同一个本地提交中。若依赖分支尚无提交或合并冲突未解决，不得提交整合结果。
+
 ## 记录下一批批准
 
 Finish 展示下一轮建议后停止，不自行批准。若用户随后明确回复“开始下一轮”，运行 `node .idiotsroadmap/runtime/roadmap-state.mjs approve`。
 
 只记录批准，然后停止。不要在当前 Session 开始下一批；用户仍需打开新的 Session 运行 `$idiots-roadmap-start`。
-

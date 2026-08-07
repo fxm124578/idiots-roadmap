@@ -194,6 +194,7 @@ node <idiots-roadmap Skill 目录>/scripts/roadmap-state.mjs bootstrap .idiotsro
   "session": {
     "strategy": "shared-directory",
     "baseCommit": null,
+    "branch": "ir/tasks/integration",
     "prompt": ""
   },
   "completion": {
@@ -211,6 +212,14 @@ node <idiots-roadmap Skill 目录>/scripts/roadmap-state.mjs bootstrap .idiotsro
 ```
 
 不要预写完整 `session.prompt`。Plan 和 Finish 只保存工作结果、模块、接口、文件范围与批准卡；Start 在用户批准并领取任务后，依据最新项目即时编译内部开发指令。读取旧 V3 Roadmap 时可以保留带保护标记的旧提示词，但重新生成后应清空。
+
+`session.branch` 在新 Roadmap 中必须明确：
+
+- 串行和 `integration` 工作使用 `repository.integrationBranch`。
+- 独立并行工作使用稳定且唯一的 `ir/<roadmapId>/<workItemId>`。
+- `shared-directory` 并行工作使用 `null`，并在整合工作统一提交。
+
+Start 领取后实际落实分支或 Worktree；Finish 只在 `accepted` 或 `technical_verified` 且最终状态已落盘后创建本地提交。不得把绝对 Worktree 路径保存进状态。
 
 工作状态使用：`planned`、`ready`、`in_progress`、`technical_verified`、`awaiting_user`、`accepted`、`blocked`、`superseded`。
 
@@ -272,6 +281,7 @@ node .idiotsroadmap/runtime/roadmap-state.mjs apply .idiotsroadmap/next-state.js
 
 - 全部工作项使用 `execution: parallel`；
 - 文件范围不得重叠；
+- 独立策略的 `session.branch` 不得重复；共享目录策略的 branch 必须为 null；
 - 最多三个工作项；
 - 下一批必须有且只有一个 `kind: integration` 的串行工作项；
 - 整合工作项的 `dependsOn` 包含本批全部工作项。
@@ -315,7 +325,7 @@ node .idiotsroadmap/runtime/roadmap-state.mjs apply .idiotsroadmap/next-state.js
   "milestones": [{"id":"ms_basic","title":"任务基本流程","outcome":"可以查看并完成任务","status":"active"}],
   "modules": [{"id":"mod_page","name":"任务页面","responsibility":"展示和操作任务","nonResponsibilities":["账号权限"],"files":["src/tasks/**"],"userOutcome":"可以查看并完成任务","evidence":[]}],
   "contracts": [],
-  "workItems": [{"id":"work_page","title":"打开任务列表","outcome":"看到可操作的任务列表","kind":"frontend","dataMode":"real","status":"planned","milestoneId":"ms_basic","moduleIds":["mod_page"],"contractIds":[],"batch":1,"execution":"serial","dependsOn":[],"files":["src/tasks/**"],"session":{"strategy":"shared-directory","baseCommit":null,"prompt":""},"completion":{"authority":"user-experience","acceptance":["打开任务页，能看到并操作任务列表。"],"review":{"status":"pending","summary":""}}}],
+  "workItems": [{"id":"work_page","title":"打开任务列表","outcome":"看到可操作的任务列表","kind":"frontend","dataMode":"real","status":"planned","milestoneId":"ms_basic","moduleIds":["mod_page"],"contractIds":[],"batch":1,"execution":"serial","dependsOn":[],"files":["src/tasks/**"],"session":{"strategy":"shared-directory","baseCommit":null,"branch":"ir/tasks/integration","prompt":""},"completion":{"authority":"user-experience","acceptance":["打开任务页，能看到并操作任务列表。"],"review":{"status":"pending","summary":""}}}],
   "changes": [],
   "decisions": [],
   "current": {"batch":1,"workItemIds":["work_page"],"approval":{"proposalId":"proposal_demo001","status":"proposed","batch":1,"workItemIds":["work_page"],"summary":"先做出可操作的任务列表","visibleResults":["打开页面后可以看到并操作任务列表"],"nonGoals":["多人协作"],"reason":"这是最早可以直接体验的完整结果。","proposedAtRevision":1,"approvedAtRevision":null}}

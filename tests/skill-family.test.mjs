@@ -48,6 +48,13 @@ test("ships four focused Skills without scaffold placeholders", () => {
   assert.match(starter, /准备版本保护/);
   assert.match(starter, /不得改成公开仓库/);
   assert.match(starter, /manual-after-final-acceptance/);
+  assert.match(starter, /落实分支与 Worktree/);
+  assert.match(starter, /逐个合并依赖的 `session\.branch`/);
+  assert.match(planner, /session\.branch/);
+  const finisher = fs.readFileSync(path.join(root, "skills", "idiots-roadmap-finish", "SKILL.md"), "utf8");
+  assert.match(finisher, /Git 收口/);
+  assert.match(finisher, /只暂存上述已核对文件/);
+  assert.match(finisher, /不得自动 push/);
 });
 
 test("hookless bootstrap creates the first proposed Roadmap and installs project runtime", (t) => {
@@ -180,6 +187,7 @@ test("parallel Start sessions atomically claim different approved work", (t) => 
     evidence: [],
   });
   state.workItems[0].execution = "parallel";
+  state.workItems[0].session.branch = null;
   state.workItems.push({
     ...structuredClone(state.workItems[0]),
     id: "work_data",
@@ -188,6 +196,7 @@ test("parallel Start sessions atomically claim different approved work", (t) => 
     kind: "backend",
     moduleIds: ["mod_data"],
     files: ["src/data/**"],
+    session: { ...structuredClone(state.workItems[0].session), branch: null },
     completion: { authority: "ai-review", acceptance: [], review: { status: "pending", summary: "" } },
   });
   state.workItems.push({
@@ -202,7 +211,7 @@ test("parallel Start sessions atomically claim different approved work", (t) => 
     moduleIds: ["mod_page", "mod_data"],
     dependsOn: ["work_page", "work_data"],
     files: ["src/integration/**"],
-    session: { strategy: "serial", baseCommit: "0123456", prompt: "" },
+    session: { strategy: "serial", baseCommit: "0123456", branch: "ir/list/integration", prompt: "" },
   });
   state.current.workItemIds = ["work_page", "work_data"];
   state.current.approval.workItemIds = ["work_page", "work_data"];

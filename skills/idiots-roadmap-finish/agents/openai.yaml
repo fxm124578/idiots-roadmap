@@ -1,4 +1,4 @@
 interface:
   display_name: "Idiots Roadmap Finish"
-  short_description: "Close current work and propose the next approved batch"
+  short_description: "验收、更新 Roadmap 并安全创建本地 Git 提交"
   default_prompt: "Use $idiots-roadmap-finish to close the current work and propose the next user-visible result."

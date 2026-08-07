@@ -49,6 +49,7 @@ ${languageOptions}${warning}
 Roadmap 规则：
 - 当前批次只提出 1–3 个 planned 工作项，不保存完整 Session 提示词；未来工作只保留里程碑、目标、依赖和边界。
 - repository.githubMode 必须记录 connected、create-private、connect-existing 或 local-only。没有本地 Git 时首批只能串行，并在结果卡说明 AI 会先建立本地版本保护且不会上传。
+- 每个工作项必须规划 session.branch：串行和整合工作使用 repository.integrationBranch；独立并行工作使用唯一任务分支；shared-directory 并行使用 null。Start 实际落实分支，Finish 在验收与最终状态落盘后本地提交。
 - 为当前批次生成 current.approval 结果卡，状态只能是 proposed；写清下一轮做什么、1–2 个可见结果、本轮不做什么和为什么现在做。
 - 用户批准后由 $idiots-roadmap-start 在新 Session 读取最新项目、原子领取 ready 工作并即时编译开发指令。Plan 不得自行批准或开始开发。
 - 当前 Session 完成后由 $idiots-roadmap-finish 核对真实结果、提出下一批并停止，绝不自动开发下一项。

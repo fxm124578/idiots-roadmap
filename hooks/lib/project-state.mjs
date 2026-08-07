@@ -72,6 +72,13 @@ function validText(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function validBranch(value) {
+  return (
+    validText(value) &&
+    !/^[.-]|[/.]$|\.lock$|\.\.|\/\/|@\{|[\\\s~^:?*[\]]/u.test(value)
+  );
+}
+
 function validRelativePath(value) {
   if (!validText(value)) return false;
   const normalized = value.trim();
@@ -307,6 +314,7 @@ export function validateProjectState(state, metadata = null) {
   const workIds = uniqueIds(state.workItems, "work", "state.workItems", errors);
   if (workIds.size === 0) errors.push("state.workItems 至少需要一个工作项。");
   const batches = new Map();
+  const isolatedBranches = new Set();
   for (const work of state.workItems || []) {
     if (!validText(work.title) || !validText(work.outcome)) errors.push(`${work.id} 必须包含 title 和 outcome。`);
     if (work.legacyStepId !== undefined && !validText(work.legacyStepId)) errors.push(`${work.id}.legacyStepId 无效。`);
@@ -361,6 +369,22 @@ export function validateProjectState(state, metadata = null) {
       }
       if (work.session?.baseCommit !== null && work.session?.baseCommit !== undefined && !/^[0-9a-f]{7,64}$/iu.test(work.session.baseCommit)) {
         errors.push(`${work.id}.session.baseCommit 必须为 null 或 Git commit。`);
+      }
+      if (metadata?.action === "new" && work.session.branch === undefined) {
+        errors.push(`${work.id}.session.branch 必须在新 Roadmap 中明确规划。`);
+      }
+      if (work.session.branch !== undefined) {
+        if (work.execution === "parallel" && work.session.strategy === "shared-directory") {
+          if (work.session.branch !== null) errors.push(`${work.id} 使用共享目录并行时不得规划分支。`);
+        } else if (!validBranch(work.session.branch)) {
+          errors.push(`${work.id}.session.branch 不是安全的 Git 分支名。`);
+        } else if (work.execution === "parallel") {
+          if (work.session.branch === state.repository?.integrationBranch) errors.push(`${work.id} 的并行分支不能占用整合分支。`);
+          if (isolatedBranches.has(work.session.branch)) errors.push(`并行任务分支重复：${work.session.branch}。`);
+          isolatedBranches.add(work.session.branch);
+        } else if (work.session.branch !== state.repository?.integrationBranch) {
+          errors.push(`${work.id} 的串行或整合工作必须使用 repository.integrationBranch。`);
+        }
       }
     }
     if (work.claim !== undefined && work.claim !== null) {

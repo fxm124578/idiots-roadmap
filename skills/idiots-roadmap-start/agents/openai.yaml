@@ -1,4 +1,4 @@
 interface:
   display_name: "Idiots Roadmap Start"
-  short_description: "在新开发 Session 自动读取、批准并领取当前任务"
+  short_description: "在新 Session 领取任务并落实分支或 Worktree"
   default_prompt: "Use $idiots-roadmap-start to safely resume the approved current work in this project."

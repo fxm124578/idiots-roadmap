@@ -83,6 +83,8 @@ $idiots-roadmap-start
 
 通过 Start 开始的开发会带上 Finish 收尾协议。Finish 也可以在中断或手动开发后单独运行；Align 通常由 AI 发现明显偏移时使用。
 
+从 `2.2.0` 开始，Git 接力也进入同一流程：Roadmap 预先规划任务分支，Start 实际创建或进入分支/Worktree，Finish 在验收和最终状态落盘后创建本地提交。并行分支由后续整合任务合并；共享目录并行统一由整合 Session 提交。任何 push 仍需用户明确授权。
+
 ---
 
 ## 🔁 一次完整开发怎么走

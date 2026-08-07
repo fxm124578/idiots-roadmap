@@ -57,6 +57,20 @@ description: 在新的开发 Session 中安全继续 Idiots Roadmap 项目。显
 - 记录命令返回的 `workItemId` 和 `claimId`。
 - 没有可领取工作时停止，不重复开发 `in_progress` 工作。
 - 只有用户明确说明原 Session 已中断时，才运行 `reclaim <work-item-id>`；不得自动抢占。
+- 当前分支已经对应某个带相同 `claimId` 的 `in_progress` 工作时，视为手动 Worktree 的合法续接，不重复 claim。
+
+## 落实分支与 Worktree
+
+领取后、开发前读取当前工作项的 `session.strategy`、`session.branch` 和 `session.baseCommit`，并实际执行：
+
+- `serial`：工作区无无法归属的改动后，创建或切换到 `repository.integrationBranch`。
+- `codex-managed-worktree` / `claude-managed-worktree`：确认宿主提供了独立工作区且基线正确；如果当前是 detached HEAD，创建并切换到计划分支；如果已在其他任务分支，停止。
+- `manual-worktree`：从共同基线创建计划分支和独立 Worktree，确认其中包含或安全复制 Roadmap 状态与 runtime，然后停止并只告诉用户新 Session 应打开的目录。新 Session 继续同一 claim。
+- `shared-directory` 并行：保持当前分支，不切换、不暂存、不提交；再次确认同批 Session 文件范围互不重叠。
+
+分支已存在时只能在它确实属于同一 `workItemId` 且没有被其他 Worktree 占用时复用。任何切换、创建或 Worktree 操作前先检查状态；有来源不明的改动就停止，不 stash、不清理、不强切。
+
+当前工作是 `integration` 时，先进入整合分支：独立分支策略要求每个依赖都已通过验收或复核且存在本地提交，然后逐个合并依赖的 `session.branch`；共享目录策略不合并分支。出现冲突时保留冲突现场并停止自动处理，由本整合 Session 按合同解决。
 
 ## 即时编译并开发
 
@@ -65,6 +79,7 @@ description: 在新的开发 Session 中安全继续 Idiots Roadmap 项目。显
 - 当前工作结果、模块职责、接口合同、文件范围和依赖；
 - 用户已批准的可见结果与本轮不做内容；
 - 当前仓库策略和并行隔离规则；
+- 已落实的当前分支或共享目录约束；
 - 只实现当前工作、运行必要检查、完成后执行 Finish 收尾并停止。
 
 不要把完整技术提示词写入 Roadmap，也不要预写未来批次。完成当前工作后按 Finish Skill 收尾，不直接领取下一项。
