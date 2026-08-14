@@ -32,8 +32,8 @@ function runPortable(projectRoot, ...args) {
   );
 }
 
-test("ships four focused Skills without scaffold placeholders", () => {
-  const names = ["idiots-roadmap", "idiots-roadmap-start", "idiots-roadmap-finish", "idiots-roadmap-align"];
+test("ships focused Skills without scaffold placeholders", () => {
+  const names = ["idiots-roadmap", "idiots-roadmap-start", "idiots-roadmap-finish", "idiots-roadmap-align", "spec-ops"];
   for (const name of names) {
     const skill = fs.readFileSync(path.join(root, "skills", name, "SKILL.md"), "utf8");
     const ui = fs.readFileSync(path.join(root, "skills", name, "agents", "openai.yaml"), "utf8");

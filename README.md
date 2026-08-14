@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Codex%20|%20Claude%20Code%20|%20Proma%20Pi-blue)]()
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933)](https://nodejs.org/)
-[![Skills](https://img.shields.io/badge/Skills-4-orange)]()
+[![Skills](https://img.shields.io/badge/Skills-5-orange)]()
 
 </div>
 
@@ -65,7 +65,7 @@ Roadmap 也会直接显示版本保护状态：
 
 ---
 
-## 🧩 四个 Skill 怎样分工
+## 🧩 五个 Skill 怎样分工
 
 | Skill | 角色 | 负责什么 |
 |---|---|---|
@@ -73,6 +73,7 @@ Roadmap 也会直接显示版本保护状态：
 | `$idiots-roadmap-start` | 接力员 | 在空白开发 Session 自动读取状态、记录批准、领取任务并开始开发 |
 | `$idiots-roadmap-finish` | 收尾员 | 核对实际结果、运行检查、同步必要文档、更新进度并提出下一批 |
 | `$idiots-roadmap-align` | 对齐员 | 比较项目和计划，判断应该改计划、修项目，还是让用户做产品决定 |
+| `$spec-ops` | 策划案操作员 | 以中文策划案定位产品行为、建立追溯地图并安全分析或同步变更 |
 
 日常只需要记住两个入口：
 
@@ -80,6 +81,8 @@ Roadmap 也会直接显示版本保护状态：
 $idiots-roadmap
 $idiots-roadmap-start
 ```
+
+需要直接从中文策划案推动产品变更时，引用策划案后运行 `$spec-ops`。
 
 通过 Start 开始的开发会带上 Finish 收尾协议。Finish 也可以在中断或手动开发后单独运行；Align 通常由 AI 发现明显偏移时使用。
 
@@ -280,9 +283,9 @@ $idiots-roadmap-align
 
 | 平台 | 当前支持 |
 |---|---|
-| Codex | 四个 Skill；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
-| Claude Code | 四个 Skill；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
-| Proma Pi | 四个 Skill；不依赖 hooks，直接落盘或在 Plan 确认后补落盘 |
+| Codex | 四个 Roadmap Skill 加策划案操作；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
+| Claude Code | 四个 Roadmap Skill 加策划案操作；hooks 可自动注入和落盘，无 hooks 时也可直接落盘 |
+| Proma Pi | 四个 Roadmap Skill 加策划案操作；不依赖 hooks，直接落盘或在 Plan 确认后补落盘 |
 | OpenCode | 暂不支持 |
 | Hermes | 不支持 |
 

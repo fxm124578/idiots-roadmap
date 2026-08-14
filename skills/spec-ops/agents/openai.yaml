@@ -1,0 +1,4 @@
+interface:
+  display_name: "策划案操作"
+  short_description: "从中文产品策划案定位需求影响并安全推进可验证的产品变更"
+  default_prompt: "Use $spec-ops to locate and assess the product-spec change I referenced."

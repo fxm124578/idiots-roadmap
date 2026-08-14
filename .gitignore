@@ -1,6 +1,7 @@
 node_modules/
 coverage/
 .idiotsroadmap/
+.product-trace/
 IDIOTS_ROADMAP.md
 .*.tmp
 .DS_Store

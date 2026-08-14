@@ -31,6 +31,9 @@ const required = [
   "skills/idiots-roadmap-finish/agents/openai.yaml",
   "skills/idiots-roadmap-align/SKILL.md",
   "skills/idiots-roadmap-align/agents/openai.yaml",
+  "skills/spec-ops/SKILL.md",
+  "skills/spec-ops/agents/openai.yaml",
+  "skills/spec-ops/scripts/spec-ops.mjs",
 ];
 
 for (const relative of required) {
@@ -44,7 +47,7 @@ const claude = readJson(".claude-plugin/plugin.json");
 const codexMarketplace = readJson(".agents/plugins/marketplace.json");
 const claudeMarketplace = readJson(".claude-plugin/marketplace.json");
 const hooks = readJson("hooks/hooks.json");
-const skillNames = ["idiots-roadmap", "idiots-roadmap-start", "idiots-roadmap-finish", "idiots-roadmap-align"];
+const skillNames = ["idiots-roadmap", "idiots-roadmap-start", "idiots-roadmap-finish", "idiots-roadmap-align", "spec-ops"];
 const skill = fs.readFileSync(path.join(root, "skills/idiots-roadmap/SKILL.md"), "utf8");
 
 assert.match(codex.version, /^\d+\.\d+\.\d+$/);
