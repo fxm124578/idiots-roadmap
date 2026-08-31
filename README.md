@@ -313,6 +313,22 @@ codex plugin add idiots-roadmap@idiots-roadmap
 
 Codex 首次安装后运行 `/hooks`，审核并信任本地 Node.js hooks。GitHub 安装不能绕过宿主安全门。
 
+### 只安装策划案操作 Skill
+
+如果只需要让 AI 根据中文策划案修改产品，不需要安装整套 Roadmap。直接在 Codex 对话中发送：
+
+```text
+请安装 GitHub 仓库 fxm124578/idiots-roadmap 的 skills/spec-ops
+```
+
+安装完成后，在新的对话中引用或编辑策划案，并发送：
+
+```text
+$spec-ops
+```
+
+也可以手动把仓库内的 `skills/spec-ops/` 文件夹复制到 `C:\Users\你的用户名\.codex\skills\spec-ops\`。无需安装 npm 依赖；需要运行追溯、差异和校验命令时，系统需要 Node.js 18+。
+
 ### Proma Pi
 
 把发布包中的 `skills/` 导入 Proma 的 Workspace Skills，然后在 Plan 中显式运行 `$idiots-roadmap`。Proma Pi 默认走 Skill 自带的便携式落盘工具，不要求 hooks。
