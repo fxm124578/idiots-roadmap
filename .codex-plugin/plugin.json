@@ -5,8 +5,8 @@
   "author": {
     "name": "Idiots Roadmap Contributors"
   },
-  "homepage": "https://github.com/idiots-roadmap/idiots-roadmap",
-  "repository": "https://github.com/idiots-roadmap/idiots-roadmap",
+  "homepage": "https://github.com/fxm124578/idiots-roadmap",
+  "repository": "https://github.com/fxm124578/idiots-roadmap",
   "license": "MIT",
   "keywords": [
     "planning",
@@ -27,7 +27,7 @@
       "Optional lifecycle hooks",
       "Project files"
     ],
-    "websiteURL": "https://github.com/idiots-roadmap/idiots-roadmap",
+    "websiteURL": "https://github.com/fxm124578/idiots-roadmap",
     "defaultPrompt": [
       "Use Idiots Roadmap in Plan mode to create a project relay for this goal.",
       "Use Idiots Roadmap Start in a new development session to resume approved work."
